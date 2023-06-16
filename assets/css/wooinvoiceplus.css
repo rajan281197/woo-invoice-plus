@@ -1,0 +1,103 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f2f2f2;
+}
+
+.form-container {
+    max-width: 450px;
+    margin: 20px auto;
+    background-color: #fff;
+    padding: 20px;
+    border: 1px solid #ccc;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+}
+
+.form-container h2 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.form-container input[type="text"],
+.form-container input[type="email"],
+.form-container select,
+.form-container input[type="color"] {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-size: 14px;
+}
+
+.form-container label {
+    font-weight: bold;
+}
+
+.form-container .checkbox-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.form-container .checkbox-container label {
+    margin-left: 10px;
+}
+
+.form-container .btn-disable-pdf {
+    background-color: #f44336;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-size: 14px;
+    border-radius: 4px;
+    transition: background-color 0.3s ease;
+}
+
+.form-container .btn-disable-pdf:hover {
+    background-color: #d32f2f;
+}
+
+.form-container .color-input-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.form-container .color-input-container label {
+    margin-right: 10px;
+}
+
+.form-container .color-input-container input[type="color"] {
+    height: 30px;
+    width: 30px;
+    padding: 0;
+    margin: 0;
+    border: none;
+    border-radius: 50%;
+    box-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
+}
+
+.form-row {
+    display: flex;
+    flex-wrap: wrap;
+    margin-left: -10px;
+    margin-right: -10px;
+}
+.form-row > .col {
+    width: calc(50% - 20px);
+    padding-left: 10px;
+    padding-right: 10px;
+}
+.form-row select {
+    padding-right: 20px;
+}
+.btn-sc {
+    width: 100%;
+    display: block;
+}
+.text-center {
+    padding: 20px;
+    text-align: center;
+}
