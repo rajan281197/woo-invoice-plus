@@ -101,3 +101,28 @@ body {
     padding: 20px;
     text-align: center;
 }
+.pdf-preview-btn-container {
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    text-align: end;
+}
+
+.pdf-preview-btn-container .button {
+    margin-right: 5px; /* Adjust spacing between button text and dashicon */
+}
+
+.image-container {
+    width: 200px; /* Set your desired width */
+    height: auto; /* Auto-adjust height based on image aspect ratio */
+    position: relative; /* Ensure proper positioning of child elements */
+}
+
+.image-container img {
+    max-width: 100%; /* Ensure the image fits within the container */
+    max-height: 100%; /* Ensure the image fits within the container */
+}
+
+.media-upload-preview{
+    width: 200px;
+}
