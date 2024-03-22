@@ -35,7 +35,7 @@ class WooInvoicePlus
 
             if(get_option('is_pdf_generating') === 'enabled_pdf_generation') :
 
-                add_action('woocommerce_thankyou', array($this, 'generate_pdf_on_order_placement'), 10, 1);
+                add_action('woocommerce_order_status_processing', array($this, 'generate_pdf_on_order_placement'), 10, 1);
 
             endif;
 
@@ -67,6 +67,9 @@ class WooInvoicePlus
         add_action( 'wp_ajax_reset_plugin_settings', array( $this, 'reset_plugin_settings' ) );
         add_action( 'wp_ajax_nopriv_reset_plugin_settings', array( $this, 'reset_plugin_settings' ) );
         add_filter('plugin_action_links_' . plugin_basename(__FILE__), array($this, 'add_settings_link'));
+
+        add_action( 'woocommerce_email_before_order_table', array( $this,'add_custom_text_to_new_order_email'), 20, 4 );
+        add_filter( 'woocommerce_email_attachments', array( $this,'send_attach_pdf_to_emails'), 10, 4 );
 
         register_activation_hook(__FILE__, array($this, 'woo_invoice_plugin_activation'));
     }
@@ -103,6 +106,33 @@ class WooInvoicePlus
         return $attachments;
     }
 
+        // Add custom text to new order email
+        public function add_custom_text_to_new_order_email( $order, $sent_to_admin, $plain_text, $email ) {
+            // Only add custom text to the customer email
+            if ( $email->id == 'customer_invoice' || $email->id == 'customer_completed_order' || $email->id == 'new_order' ) {
+                $order_id = $order->get_id();
+
+                $is_pdf_password_protected = get_post_meta($order_id, '_pdf_password_protected', true);
+
+                if ($is_pdf_password_protected) {
+
+                    $customer_first_name = $order->get_billing_first_name();
+
+                    // Get the first 4 letters of the customer's first name
+                    $customer_first_name_4_letters = strtoupper( substr( $customer_first_name, 0, 4 ) );
+
+                    // Get the order ID
+                    $order_id = $order->get_id();
+
+                    // Set the PDF password as the customer's first 4 letters of their name followed by the order ID
+                    $pdf_password = $customer_first_name_4_letters . $order_id;
+
+                    echo '<h2 class="email-upsell-title">Your Password to view Invoice PDF is : "'.$pdf_password.'"</p>';
+                }
+            }
+        }
+    
+
     // Define the function to reset settings
     public function reset_plugin_settings() {
         // Check if the option is not already set
@@ -114,6 +144,10 @@ class WooInvoicePlus
             update_option('is_pdf_generating', 'enabled_pdf_generation');
 
             update_option('is_pdf_papersize', 'a4');
+
+            update_option('is_pdf_fontfamily', 'times-roman');
+
+            update_option('is_pdf_password_protected', 'no_password');
 
             update_option('is_pdf_orientation', 'portrait');
       
@@ -142,6 +176,341 @@ class WooInvoicePlus
             update_option('display_discount_amount', 'enabled_discount_amount');
 
             update_option('display_order_customer_note', 'enabled_order_customer_note');
+
+            // Load the Dompdf library
+            
+            // Get the order object
+            
+            // Check if the order is already set to "processing" or "completed" status
+            // if ($order->has_status(array('processing', 'completed'))) {
+                //     return;
+                // }
+                
+                // // Update the order status to "processing"
+                // $order->update_status('processing');
+                
+                // Generate the PDF content
+        if (get_option('is_pdf_backend_preview') === 'backend_enabled_pdf_preview') {
+            require 'vendor/autoload.php';
+        
+                // Generate the PDF content using the order data
+                // You can customize the content based on your requirements
+
+                $content = '<html>
+                <head>
+                <meta charset="UTF-8">
+
+                <style>
+                    body {
+                        font-family: ' . (get_option('is_pdf_fontfamily') ? get_option('is_pdf_fontfamily') : 'times-roman') . '; /* Replace Arial with your desired font family */
+                    }
+                    table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    }
+
+                    #header,
+                    #footer {
+                    position: fixed;
+                    left: 0;
+                        right: 0;
+                        color: #aaa;
+                        font-size: 0.9em;
+                    }
+
+                    #header,
+                    #footer {
+                    position: fixed;
+                    left: 0;
+                        right: 0;
+                        color: #aaa;
+                        font-size: 0.9em;
+                    }
+
+                    #header {
+                    top: 0;
+                        border-bottom: 0.1pt solid #aaa;
+                    }
+
+                    #footer {
+                    bottom: 0;
+                    border-top: 0.1pt solid #aaa;
+                    }
+
+                    #header table,
+                    #footer table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        border: none;
+                    }
+
+                    #header td,
+                    #footer td {
+                    padding: 0;
+                        width: 50%;
+                    }
+
+                    .page-number {
+                    text-align: center;
+                    }
+
+                    .page-number:before {
+                    content: "Page " counter(page);
+                    }
+
+                    hr {
+                    page-break-after: always;
+                    border: 0;
+                    }
+
+                </style>
+                </head>
+                        <body>';
+
+                // Get the promo code and discount amount
+                $get_pdf_heading_color      = get_option('get_pdf_bg_color') ? get_option('get_pdf_bg_color') : '#000000';
+                $get_pdf_subheading_color   = get_option('get_pdf_subheading_color') ? get_option('get_pdf_subheading_color') : '#000000';
+                $get_pdf_logo               = get_option('pdf_logo_path') ? esc_url(wp_get_attachment_url(get_option('pdf_logo_path'))) : '';
+
+                $content .= '<div id="header">
+                                <table>
+                                    <tr><
+                                    td></td>
+                                    <td style="text-align: right;">';
+
+                if(!empty($get_pdf_logo)){
+                    $imgtest    = file_get_contents($get_pdf_logo);
+                    $img        = base64_encode($imgtest);
+                
+
+                                            if (!empty($img)) {
+                                                $img = base64_encode($imgtest);
+                                                $content .= '<a href="'.esc_url( get_site_url() ).'"><img src="data:image;base64,'.$img.'"></a>';
+                                            }
+                }
+                
+                $content .= '</td></tr></table>
+                                </div>
+                                
+                                <div id="footer">
+                                    <div class="page-number"></div>
+                                </div>';
+                $content .= '<h2>
+                            <u style="color:' . $get_pdf_heading_color .'">Order Details of <span style="background: yellow;">#' . 1234567890 . '</span></u>
+                            </h2>';
+                $content .= '<table style="width: 100%; border-collapse: collapse;border: 1px solid black;">
+                            <tr>
+                                <th style="text-align: left; padding: 8px;border: 1px solid black;color:' . $get_pdf_subheading_color .'"">Order Number</th>
+                                <td style="padding: 8px;border: 1px solid black;"><span style="background: yellow;">#' . 1234567890 . '</span></td>
+                            </tr>
+                            <tr>
+                                <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Order Total</th>
+                                <td style="padding: 8px;border: 1px solid black;">' . ' $33.00 ' . '</td>
+                            </tr>';
+
+                                
+
+                                if(get_option('display_coupon_code') === 'enabled_coupon_code') :
+
+                                    $content .= '<tr>
+                                                    <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Promo Code</th>
+                                                    <td style="padding: 8px;border: 1px solid black;">' . 'BOGO777' . '</td>
+                                                </tr>';
+
+                                endif;
+
+                                if(get_option('display_discount_amount') === 'enabled_discount_amount') :
+
+                                    $content .= '<tr>
+                                                    <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Discount Amount</th>
+                                                    <td style="padding: 8px;border: 1px solid black;">' . wc_price(50) . '</td>
+                                                </tr>';
+
+                                endif;
+
+                $content .= '</table>';
+
+                // Get customer information
+
+                // Get customer name and email
+               
+
+                $content .= '<h3><u>Customer Information</u></h3>';
+                $content .= '<table style="width: 100%; border-collapse: collapse;border: 1px solid black;">
+                            <tr>
+                                <th style="text-align: left; padding: 8px;border: 1px solid black;">Customer Name</th>
+                                <td style="padding: 8px;border: 1px solid black;">' . 'Loren Epsum' . '</td>
+                            </tr>
+                            <tr>
+                                <th style="text-align: left; padding: 8px;border: 1px solid black;">Customer Email</th>
+                                <td style="padding: 8px;border: 1px solid black;">' . 'lorenepsum777@gmail.com' . '</td>
+                            </tr>
+                        </table>';
+
+
+                $content .= '<h3><u style="color:' . $get_pdf_heading_color .'">Order Items</u></h3>';
+
+                // Add order items
+                $content .= '<table style="width: 100%; border-collapse: collapse;border: 1px solid black;">
+                            <tr>
+                                <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Product</th>
+                                <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Quantity</th>
+                                <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Total</th>
+                            </tr>';
+
+          
+                    $content .= '<tr>
+                                <td style="padding: 8px;border: 1px solid black;">' . 'Album' . '</td>
+                                <td style="padding: 8px;border: 1px solid black;">' . '1' . '</td>
+                                <td style="padding: 8px;border: 1px solid black;">' . wc_price(15) . '</td>
+                            </tr><tr>
+                            <td style="padding: 8px;border: 1px solid black;">' . 'Beanie' . '</td>
+                            <td style="padding: 8px;border: 1px solid black;">' . '10' . '</td>
+                            <td style="padding: 8px;border: 1px solid black;">' . wc_price(120) . '</td>
+                        </tr>';
+
+                $content .= '</table>';
+
+                // Get payment method
+
+                if(get_option('display_paymethod') === 'enabled_paymethod') :
+
+                    $content .= '<table style="width: 100%; border-collapse: collapse;border: 1px solid black;">
+                                <tr>
+                                    <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Payment Method</th>
+                                    <td style="padding: 8px;border: 1px solid black;">' . 'Cash on delivery' . '</td>
+                                </tr>
+                            </table>';
+                
+                endif;
+
+                
+                if(get_option('display_orderdate') === 'enabled_order_date') :
+
+                    // Get order created date
+                    $content .= '<table style="width: 100%; border-collapse: collapse;border: 1px solid black;">
+                                <tr>
+                                    <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Order Created Date</th>
+                                    <td style="padding: 8px;border: 1px solid black;">' . 'March 21, 2024' . '</td>
+                                </tr>
+                            </table>';
+
+                endif;
+
+                if(get_option('display_order_customer_note') === 'enabled_order_customer_note') :
+
+                    $content .= '<table style="width: 100%; border-collapse: collapse;border: 1px solid black;">
+                                    <tr>
+                                        <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Order Note</th>
+                                        <td style="padding: 8px;border: 1px solid black;">' . 'Can you help translate this site into a foreign language ? Please email us with details if you can help.' . '</td>
+                                    </tr>
+                                </table>';
+
+
+                endif;
+
+                if(get_option('woo_invoice_shipping') === 'enabled_shipping_address') :
+
+                    // Get shipping details
+                        $content .= '<h3><u style="color:' . $get_pdf_heading_color .'">Shipping Details</u></h3>';
+                        $content .= '<table style="width: 100%; border-collapse: collapse;border: 1px solid black;">
+                                    <tr>
+                                        <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Shipping Address</th>
+                                        <td style="padding: 8px;border: 1px solid black;">' . 
+                                        'Verda Gleason
+                                        Klein, Krajcik and Harris
+                                        1499 Towne Vista
+                                        626 Swift Route
+                                        Chula Vista, CA 33980' 
+                                        . '</td>
+                                    </tr>
+                                    <tr>
+                                        <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Shipping Method</th>
+                                        <td style="padding: 8px;border: 1px solid black;">' . 'Free shipping' . '</td>
+                                    </tr>
+                                </table>';
+
+                endif;
+
+                if(get_option('woo_invoice_billing') === 'enabled_billing_address') :
+
+                    // Get billing details
+                        $content .= '<h3><u style="color:' . $get_pdf_heading_color .'">Billing Details</u></h3>';
+                        $content .= '<table style="width: 100%; border-collapse: collapse;border: 1px solid black;">
+                                        <tr>
+                                            <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Billing Address</th>
+                                            <td style="padding: 8px;border: 1px solid black;">' . 
+                                            'Verda Gleason
+                                            Klein, Krajcik and Harris
+                                            1499 Towne Vista
+                                            626 Swift Route
+                                            Chula Vista, CA 33980'
+                                             . '</td>
+                                        </tr>;';  
+                                        if(get_option('woo_invoice_phone_number') === 'enabled_phone_number') :
+                                        
+                                            $content .= '<tr>
+                                                            <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Phone number</th>
+                                                            <td style="padding: 8px;border: 1px solid black;"><a href="tel:'.'157-841-7322'.'">' . '157-841-7322' . '</a></td>
+                                                        </tr>;';
+                                        endif;
+
+                                        if(get_option('woo_invoice_email_address') === 'enabled_email_address') :
+                                        
+                                            $content .= '<tr>
+                                                            <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Email Address</th>
+                                                            <td style="padding: 8px;border: 1px solid black;">' . 'lorenepsum777@gmail.com' . '</td>
+                                                        </tr>;';
+                                        endif;
+
+
+                        $content .= '</table>';
+
+                endif;
+
+                $content .= '</body>
+                        </html>';
+
+            
+
+            // Create a new Dompdf instance
+            $dompdf = new Dompdf\Dompdf();
+
+            // Load the PDF content
+            $dompdf->loadHtml($content);
+
+            // Set paper size and orientation
+            $dompdf->setPaper(
+                                ( get_option('is_pdf_papersize') === 'a4') ? 'a4' : get_option('is_pdf_papersize'),
+                                ( get_option('is_pdf_orientation') === 'portrait') ? 'portrait' : get_option('is_pdf_orientation')
+                            );
+
+            // Render the PDF
+            $dompdf->render();
+            
+            // $dompdf->stream("",array("Attachment"=> false));
+            if(get_option('is_pdf_password_protected') === 'password_protected') : 
+                // Password protection
+                    $cpdf = $dompdf->getCanvas()->get_cpdf();
+
+                    // Set encryption with strong passwords:
+                    // - User password (optional, for opening restrictions) - Use a complex password with at least 12 characters, including uppercase, lowercase, numbers, and symbols.
+                    $userPassword = 'DEMO123';
+                    // - Owner password (mandatory for full access) - Use a different, equally strong password.
+                    $ownerPassword = 'DEMO123';
+                    $allowedActions = ['print', 'copy']; // Adjust based on your requirements
+
+                    $cpdf->setEncryption($userPassword, $ownerPassword, $allowedActions);
+
+                endif;
+            // Get the PDF output
+            $pdf_output = $dompdf->output();
+
+
+            $pdf_file_path = plugin_dir_path(__FILE__) . 'assets/pdf/woo-invoice-preview.pdf';
+
+            file_put_contents($pdf_file_path, $pdf_output);
+        }
 
     
         // Add other option checks and updates here...
@@ -172,6 +541,17 @@ class WooInvoicePlus
             // Set the default value for the option
             update_option('is_pdf_papersize', 'a4');
         }
+
+        if (!get_option('is_pdf_password_protected')) {
+            // Set the default value for the option
+            update_option('is_pdf_password_protected', 'no_password');
+        }
+
+        if (!get_option('is_pdf_fontfamily')) {
+            // Set the default value for the option
+            update_option('is_pdf_fontfamily', 'times-roman');
+        }
+
 
         if (!get_option('is_pdf_generating_backend')) {
             update_option('is_pdf_generating_backend', 'backend_enabled_pdf_generation');
@@ -236,6 +616,7 @@ class WooInvoicePlus
         
         return $links;
     }
+
     /**
 	 * Registers a new settings page under Settings.
 	 */
@@ -265,7 +646,8 @@ class WooInvoicePlus
 
         <?php if(get_option('is_pdf_backend_preview') === 'backend_enabled_pdf_preview') : ?>
         <div class="pdf-preview-btn-container">
-            <button id="pdf-preview-button" data-fancybox data-src="https://fancyapps.com/sample.pdf" data-type="iframe" class="button button-primary button-large">
+            <button id="pdf-preview-button"  class="button button-primary button-large">
+
                 <?php _e('Preview PDF', 'woo-invoice-plus'); ?> 
                 <span class="dashicons dashicons-media-document"></span>
             </button>
@@ -278,6 +660,7 @@ class WooInvoicePlus
                 <label for="pdf-generating-functionality">PDF Generating Functionality:</label>
                 <select id="pdf-generating-functionality" name="pdf-generating-functionality">
                     <option value="enabled_pdf_generation" <?php echo (get_option('is_pdf_generating') === 'enabled_pdf_generation') ? 'selected' : ''; ?>>Enable PDF generating functionality</option>
+                    <option value="disabled_pdf_generation" <?php echo (get_option('is_pdf_generating') === 'disabled_pdf_generation') ? 'selected' : ''; ?>>Disable PDF generating functionality</option>
                    
                 </select>
             </div>
@@ -347,7 +730,7 @@ class WooInvoicePlus
             </div>
 
             <div class="col">
-                <label for="pdf-generating-orientation">PDF Paper Size:</label>
+                <label for="pdf-generating-orientation">PDF Paper View:</label>
                 <select id="pdf-generating-orientation" name="pdf-generating-orientation">
                     <option value="landscape" <?php echo (get_option('is_pdf_orientation') === 'landscape') ? 'selected' : ''; ?>>Landscape</option>
                     <option value="portrait" <?php echo (get_option('is_pdf_orientation') === 'portrait') ? 'selected' : ''; ?>>Portrait</option>
@@ -355,10 +738,19 @@ class WooInvoicePlus
             </div>
 
             <div class="col">
-                <label for="pdf-generating-functionality-backend-order-detail">Backend Order detail page:</label>
-                <select id="pdf-generating-functionality-backend-order-detail" name="pdf-generating-functionality-backend-order-detail">
-                    <option value="backend_enabled_pdf_generation" <?php echo (get_option('is_pdf_generating_backend') === 'backend_enabled_pdf_generation') ? 'selected' : ''; ?>>Enable PDF generating functionality</option>
-                    <option value="backend_disabled_pdf_generation" <?php echo (get_option('is_pdf_generating_backend') === 'backend_disabled_pdf_generation') ? 'selected' : ''; ?>>Disable PDF generating functionality</option>
+                <label for="pdf-generating-fontfamily">PDF Font Family:</label>
+                <select id="pdf-generating-fontfamily" name="pdf-generating-fontfamily">
+                    <option value="dejavu serif" <?php echo (get_option('is_pdf_fontfamily') === 'dejavu serif') ? 'selected' : ''; ?>>Dejavu Serif</option>
+                    <option value="dejavu sans mono" <?php echo (get_option('is_pdf_fontfamily') === 'dejavu sans mono') ? 'selected' : ''; ?>>Dejavu sans mono</option>
+                    <option value="dejavu sans" <?php echo (get_option('is_pdf_fontfamily') === 'dejavu sans') ? 'selected' : ''; ?>>Dejavu sans</option>
+                    <option value="fixed" <?php echo (get_option('is_pdf_fontfamily') === 'fixed') ? 'selected' : ''; ?>>Fixed</option>
+                    <option value="monospace" <?php echo (get_option('is_pdf_fontfamily') === 'monospace') ? 'selected' : ''; ?>>Monospace</option>
+                    <option value="symbol" <?php echo (get_option('is_pdf_fontfamily') === 'symbol') ? 'selected' : ''; ?>>Symbol</option>
+                    <option value="zapfdingbats" <?php echo (get_option('is_pdf_fontfamily') === 'zapfdingbats') ? 'selected' : ''; ?>>Zapfdingbats</option>
+                    <option value="helvetica" <?php echo (get_option('is_pdf_fontfamily') === 'helvetica') ? 'selected' : ''; ?>>Helvetica</option>
+                    <option value="courier" <?php echo (get_option('is_pdf_fontfamily') === 'courier') ? 'selected' : ''; ?>>Courier</option>
+                    <option value="times-roman" <?php echo (get_option('is_pdf_fontfamily') === 'times-roman') ? 'selected' : ''; ?>>Times-roman</option>
+                    <option value="sans-serif" <?php echo (get_option('is_pdf_fontfamily') === 'sans-serif') ? 'selected' : ''; ?>>Sans-serif</option>
                 </select>
             </div>
 
@@ -369,6 +761,25 @@ class WooInvoicePlus
                     <option value="backend_disabled_pdf_preview" <?php echo (get_option('is_pdf_backend_preview') === 'backend_disabled_pdf_preview') ? 'selected' : ''; ?>>Disable PDF Preview</option>
                 </select>
             </div>
+
+            <div class="col">
+                <label for="pdf-password-protection-status">PDF Password Protection:</label>
+                <select id="pdf-password-protection-status" name="pdf-password-protection-status">
+                    <option value="no_password" <?php echo (get_option('is_pdf_password_protected') === 'no_password') ? 'selected' : ''; ?>>No Password Protection</option>
+                    <option value="password_protected" <?php echo (get_option('is_pdf_password_protected') === 'password_protected') ? 'selected' : ''; ?>>Password Protected</option>
+                </select>
+                <p class="description">Preview PDF Password : <b style="color:green;">DEMO123</b></p>
+
+            </div>
+
+            <div class="col">
+                <label for="pdf-generating-functionality-backend-order-detail">Backend Order detail page:</label>
+                <select id="pdf-generating-functionality-backend-order-detail" name="pdf-generating-functionality-backend-order-detail">
+                    <option value="backend_enabled_pdf_generation" <?php echo (get_option('is_pdf_generating_backend') === 'backend_enabled_pdf_generation') ? 'selected' : ''; ?>>Enable PDF generating functionality</option>
+                    <option value="backend_disabled_pdf_generation" <?php echo (get_option('is_pdf_generating_backend') === 'backend_disabled_pdf_generation') ? 'selected' : ''; ?>>Disable PDF generating functionality</option>
+                </select>
+            </div>
+
 
             <div class="col">
                 <label for="pdf-generating-functionality-myaccount-order-detail">My Account Order detail page:</label>
@@ -463,7 +874,7 @@ class WooInvoicePlus
             <div class="col">
                 <label for="pdf_logo_upload">Upload PDF Logo:</label>
                 <!-- <input type="file" id="pdf_logo_upload" name="pdf_logo_upload"> -->
-                <input id="header_logo" name="wpo_wcpdf_settings_general[header_logo]" type="hidden" value="" class="media-upload-id">
+                <input id="header_logo" name="wpo_wcpdf_settings_general[header_logo]" type="hidden" value="<?php echo (get_option('pdf_logo_path')) ? get_option('pdf_logo_path') : ''; ?>" class="media-upload-id">
                 <img src="<?php echo esc_url(wp_get_attachment_url(get_option('pdf_logo_path'))); ?>" style="<?php echo (get_option('pdf_logo_path')) ? '' : 'display:none'; ?>" id="img-header_logo" class="media-upload-preview">
                 <span class="button wpo_upload_image_button header_logo" data-uploader_title="Select or upload your invoice header/logo" data-uploader_button_text="Set image" data-remove_button_text="Remove image" data-input_id="header_logo">Set image</span>
                 <span class="button wpo_remove_image_button" data-input_id="header_logo" style="<?php echo (get_option('pdf_logo_path')) ? '' : 'display:none'; ?>">Remove image</span>
@@ -502,6 +913,8 @@ class WooInvoicePlus
             $woo_invoice_obj = array(
                 'wooinvoiceplus'    => admin_url('admin-ajax.php'),
                 'action'            => $this->save_global_settings_wooinvoiceplus(),
+                'default_pdf'       => plugin_dir_url(__FILE__) . 'assets/pdf/woo-invoice-preview.pdf',
+
 
             );
             wp_localize_script('wooinvoiceplus-js', 'wooinvoiceplus_ajax_object', $woo_invoice_obj);
@@ -511,6 +924,7 @@ class WooInvoicePlus
 
         }
     }
+    
 
     public function save_global_settings_wooinvoiceplus()
     {
@@ -533,6 +947,16 @@ class WooInvoicePlus
         if (isset($_POST['is_pdf_papersize'])) {
             // Set the default value for the option
             update_option('is_pdf_papersize', $_POST['is_pdf_papersize']);
+        }
+
+        if (isset($_POST['is_pdf_fontfamily'])) {
+            // Set the default value for the option
+            update_option('is_pdf_fontfamily', $_POST['is_pdf_fontfamily']);
+        }
+
+        if (isset($_POST['is_pdf_password_protected'])) {
+            // Set the default value for the option
+            update_option('is_pdf_password_protected', $_POST['is_pdf_password_protected']);
         }
 
         if (isset($_POST['is_pdf_orientation'])) {
@@ -591,7 +1015,355 @@ class WooInvoicePlus
         if (isset($_POST['display_order_customer_note'])) {
             update_option('display_order_customer_note', $_POST['display_order_customer_note']);
         }
-        
+
+        // Load the Dompdf library
+       
+
+        // Get the order object
+
+         // Check if the order is already set to "processing" or "completed" status
+        // if ($order->has_status(array('processing', 'completed'))) {
+        //     return;
+        // }
+
+        // // Update the order status to "processing"
+        // $order->update_status('processing');
+
+        // Generate the PDF content
+        if (get_option('is_pdf_backend_preview') === 'backend_enabled_pdf_preview') {
+            require 'vendor/autoload.php';
+                // Generate the PDF content using the order data
+                // You can customize the content based on your requirements
+                // body {
+                //     font-family: dejavu serif; /* Replace Arial with your desired font family */
+                // }
+                $content = '<html>
+                <head>
+                <meta charset="UTF-8">
+                <style>
+                    body {
+                        font-family: ' . (get_option('is_pdf_fontfamily') ? get_option('is_pdf_fontfamily') : 'times-roman') . '; /* Replace Arial with your desired font family */
+                    }
+                    table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    }
+
+                    #header,
+                    #footer {
+                    position: fixed;
+                    left: 0;
+                        right: 0;
+                        color: #aaa;
+                        font-size: 0.9em;
+                    }
+
+                    #header,
+                    #footer {
+                    position: fixed;
+                    left: 0;
+                        right: 0;
+                        color: #aaa;
+                        font-size: 0.9em;
+                    }
+
+                    #header {
+                    top: 0;
+                        border-bottom: 0.1pt solid #aaa;
+                    }
+
+                    #footer {
+                    bottom: 0;
+                    border-top: 0.1pt solid #aaa;
+                    }
+
+                    #header table,
+                    #footer table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        border: none;
+                    }
+
+                    #header td,
+                    #footer td {
+                    padding: 0;
+                        width: 50%;
+                    }
+
+                    .page-number {
+                    text-align: center;
+                    }
+
+                    .page-number:before {
+                    content: "Page " counter(page);
+                    }
+
+                    hr {
+                    page-break-after: always;
+                    border: 0;
+                    }
+
+                </style>
+                </head>
+                        <body>';
+
+                // Get the promo code and discount amount
+                $get_pdf_heading_color      = get_option('get_pdf_bg_color') ? get_option('get_pdf_bg_color') : '#000000';
+                $get_pdf_subheading_color   = get_option('get_pdf_subheading_color') ? get_option('get_pdf_subheading_color') : '#000000';
+                $get_pdf_logo               = get_option('pdf_logo_path') ? esc_url(wp_get_attachment_url(get_option('pdf_logo_path'))) : '';
+
+                $content .= '<div id="header">
+                                <table>
+                                    <tr><
+                                    td></td>
+                                    <td style="text-align: right;">';
+
+                if(!empty($get_pdf_logo)){
+                    $imgtest    = file_get_contents($get_pdf_logo);
+                    $img        = base64_encode($imgtest);
+                
+
+                                            if (!empty($img)) {
+                                                $img = base64_encode($imgtest);
+                                                $content .= '<a href="'.esc_url( get_site_url() ).'"><img src="data:image;base64,'.$img.'"></a>';
+                                            }
+                }
+                
+                $content .= '</td></tr></table>
+                                </div>
+                                
+                                <div id="footer">
+                                    <div class="page-number"></div>
+                                </div>';
+                $content .= '<h2>
+                            <u style="color:' . $get_pdf_heading_color .'">Order Details of <span style="background: yellow;">#' . 1234567890 . '</span></u>
+                            </h2>';
+                $content .= '<table style="width: 100%; border-collapse: collapse;border: 1px solid black;">
+                            <tr>
+                                <th style="text-align: left; padding: 8px;border: 1px solid black;color:' . $get_pdf_subheading_color .'"">Order Number</th>
+                                <td style="padding: 8px;border: 1px solid black;"><span style="background: yellow;">#' . 1234567890 . '</span></td>
+                            </tr>
+                            <tr>
+                                <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Order Total</th>
+                                <td style="padding: 8px;border: 1px solid black;">' . ' $33.00 ' . '</td>
+                            </tr>';
+
+                                
+
+                                if(get_option('display_coupon_code') === 'enabled_coupon_code') :
+
+                                    $content .= '<tr>
+                                                    <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Promo Code</th>
+                                                    <td style="padding: 8px;border: 1px solid black;">' . 'BOGO777' . '</td>
+                                                </tr>';
+
+                                endif;
+
+                                if(get_option('display_discount_amount') === 'enabled_discount_amount') :
+
+                                    $content .= '<tr>
+                                                    <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Discount Amount</th>
+                                                    <td style="padding: 8px;border: 1px solid black;">' . wc_price(50) . '</td>
+                                                </tr>';
+
+                                endif;
+
+                $content .= '</table>';
+
+                // Get customer information
+
+                // Get customer name and email
+               
+
+                $content .= '<h3><u>Customer Information</u></h3>';
+                $content .= '<table style="width: 100%; border-collapse: collapse;border: 1px solid black;">
+                            <tr>
+                                <th style="text-align: left; padding: 8px;border: 1px solid black;">Customer Name</th>
+                                <td style="padding: 8px;border: 1px solid black;">' . 'Loren Epsum' . '</td>
+                            </tr>
+                            <tr>
+                                <th style="text-align: left; padding: 8px;border: 1px solid black;">Customer Email</th>
+                                <td style="padding: 8px;border: 1px solid black;">' . 'lorenepsum777@gmail.com' . '</td>
+                            </tr>
+                        </table>';
+
+
+                $content .= '<h3><u style="color:' . $get_pdf_heading_color .'">Order Items</u></h3>';
+
+                // Add order items
+                $content .= '<table style="width: 100%; border-collapse: collapse;border: 1px solid black;">
+                            <tr>
+                                <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Product</th>
+                                <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Quantity</th>
+                                <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Total</th>
+                            </tr>';
+
+          
+                    $content .= '<tr>
+                                <td style="padding: 8px;border: 1px solid black;">' . 'Album' . '</td>
+                                <td style="padding: 8px;border: 1px solid black;">' . '1' . '</td>
+                                <td style="padding: 8px;border: 1px solid black;">' . wc_price(15) . '</td>
+                            </tr><tr>
+                            <td style="padding: 8px;border: 1px solid black;">' . 'Beanie' . '</td>
+                            <td style="padding: 8px;border: 1px solid black;">' . '10' . '</td>
+                            <td style="padding: 8px;border: 1px solid black;">' . wc_price(120) . '</td>
+                        </tr>';
+
+                $content .= '</table>';
+
+                // Get payment method
+
+                if(get_option('display_paymethod') === 'enabled_paymethod') :
+
+                    $content .= '<table style="width: 100%; border-collapse: collapse;border: 1px solid black;">
+                                <tr>
+                                    <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Payment Method</th>
+                                    <td style="padding: 8px;border: 1px solid black;">' . 'Cash on delivery' . '</td>
+                                </tr>
+                            </table>';
+                
+                endif;
+
+                
+                if(get_option('display_orderdate') === 'enabled_order_date') :
+
+                    // Get order created date
+                    $content .= '<table style="width: 100%; border-collapse: collapse;border: 1px solid black;">
+                                <tr>
+                                    <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Order Created Date</th>
+                                    <td style="padding: 8px;border: 1px solid black;">' . 'March 21, 2024' . '</td>
+                                </tr>
+                            </table>';
+
+                endif;
+
+                if(get_option('display_order_customer_note') === 'enabled_order_customer_note') :
+
+                    $content .= '<table style="width: 100%; border-collapse: collapse;border: 1px solid black;">
+                                    <tr>
+                                        <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Order Note</th>
+                                        <td style="padding: 8px;border: 1px solid black;">' . 'Can you help translate this site into a foreign language ? Please email us with details if you can help.' . '</td>
+                                    </tr>
+                                </table>';
+
+
+                endif;
+
+                if(get_option('woo_invoice_shipping') === 'enabled_shipping_address') :
+
+                    // Get shipping details
+                        $content .= '<h3><u style="color:' . $get_pdf_heading_color .'">Shipping Details</u></h3>';
+                        $content .= '<table style="width: 100%; border-collapse: collapse;border: 1px solid black;">
+                                    <tr>
+                                        <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Shipping Address</th>
+                                        <td style="padding: 8px;border: 1px solid black;">' . 
+                                        'Verda Gleason
+                                        Klein, Krajcik and Harris
+                                        1499 Towne Vista
+                                        626 Swift Route
+                                        Chula Vista, CA 33980' 
+                                        . '</td>
+                                    </tr>
+                                    <tr>
+                                        <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Shipping Method</th>
+                                        <td style="padding: 8px;border: 1px solid black;">' . 'Free shipping' . '</td>
+                                    </tr>
+                                </table>';
+
+                endif;
+
+                if(get_option('woo_invoice_billing') === 'enabled_billing_address') :
+
+                    // Get billing details
+                        $content .= '<h3><u style="color:' . $get_pdf_heading_color .'">Billing Details</u></h3>';
+                        $content .= '<table style="width: 100%; border-collapse: collapse;border: 1px solid black;">
+                                        <tr>
+                                            <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Billing Address</th>
+                                            <td style="padding: 8px;border: 1px solid black;">' . 
+                                            'Verda Gleason
+                                            Klein, Krajcik and Harris
+                                            1499 Towne Vista
+                                            626 Swift Route
+                                            Chula Vista, CA 33980'
+                                             . '</td>
+                                        </tr>;';  
+                                        if(get_option('woo_invoice_phone_number') === 'enabled_phone_number') :
+                                        
+                                            $content .= '<tr>
+                                                            <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Phone number</th>
+                                                            <td style="padding: 8px;border: 1px solid black;"><a href="tel:'.'157-841-7322'.'">' . '157-841-7322' . '</a></td>
+                                                        </tr>;';
+                                        endif;
+
+                                        if(get_option('woo_invoice_email_address') === 'enabled_email_address') :
+                                        
+                                            $content .= '<tr>
+                                                            <th style="text-align: left; padding: 8px;border: 1px solid black;;color:' . $get_pdf_subheading_color .'"">Email Address</th>
+                                                            <td style="padding: 8px;border: 1px solid black;">' . 'lorenepsum777@gmail.com' . '</td>
+                                                        </tr>;';
+                                        endif;
+
+
+                        $content .= '</table><form method="post" action="">
+                        <label for="name">Name:</label>
+                        <input type="text" id="name" name="name" required><br><br>
+                        
+                        <label for="email">Email:</label>
+                        <input type="email" id="email" name="email" required><br><br>
+                        
+                        <label for="message">Message:</label><br>
+                        <textarea id="message" name="message" rows="4" cols="50" required></textarea><br><br>
+                        
+                        <input type="submit" value="Submit">
+                    </form>';
+
+                endif;
+
+                $content .= '</body>
+                        </html>';
+
+            
+
+            // Create a new Dompdf instance
+            $dompdf = new Dompdf\Dompdf();
+
+            // Load the PDF content
+            $dompdf->loadHtml($content);
+
+            // Set paper size and orientation
+            $dompdf->setPaper(
+                                ( get_option('is_pdf_papersize') === 'a4') ? 'a4' : get_option('is_pdf_papersize'),
+                                ( get_option('is_pdf_orientation') === 'portrait') ? 'portrait' : get_option('is_pdf_orientation')
+                            );
+
+
+            // Render the PDF
+            $dompdf->render();
+            // $dompdf->stream("",array("Attachment"=> false));
+            if(get_option('is_pdf_password_protected') === 'password_protected') : 
+            // Password protection
+                $cpdf = $dompdf->getCanvas()->get_cpdf();
+
+                // Set encryption with strong passwords:
+                // - User password (optional, for opening restrictions) - Use a complex password with at least 12 characters, including uppercase, lowercase, numbers, and symbols.
+                $userPassword = 'DEMO123';
+                // - Owner password (mandatory for full access) - Use a different, equally strong password.
+                $ownerPassword = 'DEMO123';
+                $allowedActions = ['print', 'copy']; // Adjust based on your requirements
+
+                $cpdf->setEncryption($userPassword, $ownerPassword, $allowedActions);
+
+            endif;
+
+
+            // Get the PDF output
+            $pdf_output = $dompdf->output();
+
+
+            $pdf_file_path = plugin_dir_path(__FILE__) . 'assets/pdf/woo-invoice-preview.pdf';
+
+            file_put_contents($pdf_file_path, $pdf_output);
+        }
 
     }
 
@@ -615,6 +1387,23 @@ class WooInvoicePlus
 
         if ($invoice_exists) {
             $download_url = $this->get_invoice_download_url($order_id);
+            $is_pdf_password_protected = get_post_meta($order_id, '_pdf_password_protected', true);
+
+            if ($is_pdf_password_protected) {
+                $customer_first_name = $order->get_billing_first_name();
+
+                // Get the first 4 letters of the customer's first name
+                $customer_first_name_4_letters = strtoupper(substr($customer_first_name, 0, 4));
+
+                // Get the order ID
+                $woo_order_id = $order->get_id();
+
+                // Set the PDF password as the customer's first 4 letters of their name followed by the order ID
+                $pdf_password = $customer_first_name_4_letters . $woo_order_id;
+
+                echo '<h5 class="email-upsell-title">Your Password to view Invoice PDF is : "' . $pdf_password . '"</h5>';
+            }
+            
             echo '<a href="' . esc_url($download_url) . '" class="button" download>' . __('Download Invoice', 'woo-invoice-plus') . '</a>';
         } else {
             $generate_url = $this->generate_pdf_on_order_placement($order_id);
@@ -630,9 +1419,6 @@ class WooInvoicePlus
         if (isset($_GET['wooinvoiceplus_download_invoice'])) {
             $order_id = absint($_GET['wooinvoiceplus_download_invoice']);
             $order = wc_get_order($order_id);
-            echo "<pre>";
-            print_r($order);
-            echo "</pre>";
             $invoice_exists = $this->check_invoice_exists($order_id);
 
             if ($invoice_exists) {
@@ -701,6 +1487,36 @@ class WooInvoicePlus
         $dompdf->render();
         // $dompdf->stream("",array("Attachment"=> false));
 
+        
+        if(get_option('is_pdf_password_protected') === 'password_protected') {
+                $customer_first_name = $order->get_billing_first_name();
+        
+                // Get the first 4 letters of the customer's first name
+                $customer_first_name_4_letters = strtoupper( substr( $customer_first_name, 0, 4 ) );
+        
+                // Get the order ID
+                $order_id = $order->get_id();
+        
+                // Set the PDF password as the customer's first 4 letters of their name followed by the order ID
+                $pdf_password = $customer_first_name_4_letters . $order_id;
+            // Password protection
+                $cpdf = $dompdf->getCanvas()->get_cpdf();
+
+                // Set encryption with strong passwords:
+                // - User password (optional, for opening restrictions) - Use a complex password with at least 12 characters, including uppercase, lowercase, numbers, and symbols.
+                $userPassword = $pdf_password;
+                // - Owner password (mandatory for full access) - Use a different, equally strong password.
+                $ownerPassword = $pdf_password;
+                $allowedActions = ['print', 'copy']; // Adjust based on your requirements
+
+                $cpdf->setEncryption($userPassword, $ownerPassword, $allowedActions);
+                update_post_meta($order_id, '_pdf_password_protected', true);
+
+        } else {
+            update_post_meta($order_id, '_pdf_password_protected', false);
+
+        }
+
         // Get the PDF output
         $pdf_output = $dompdf->output();
 
@@ -740,6 +1556,23 @@ class WooInvoicePlus
             
             if ($invoice_exists) {
                 $download_url = $this->get_invoice_download_url($order_id);
+                $is_pdf_password_protected = get_post_meta($order_id, '_pdf_password_protected', true);
+
+                if ($is_pdf_password_protected) {
+                    $customer_first_name = $order->get_billing_first_name();
+    
+                    // Get the first 4 letters of the customer's first name
+                    $customer_first_name_4_letters = strtoupper(substr($customer_first_name, 0, 4));
+    
+                    // Get the order ID
+                    $woo_order_id = $order->get_id();
+    
+                    // Set the PDF password as the customer's first 4 letters of their name followed by the order ID
+                    $pdf_password = $customer_first_name_4_letters . $woo_order_id;
+    
+                    echo '<h5 class="email-upsell-title">Your Password to view Invoice PDF is : "' . $pdf_password . '"</h5>';
+                }
+
                 echo '<a href="' . esc_url($download_url) . '" class="button" download>' . __('Download Invoice', 'woo-invoice-plus') . '</a>';
             }
             
@@ -763,6 +1596,9 @@ class WooInvoicePlus
             <meta charset="UTF-8">
 
             <style>
+            body {
+                font-family: ' . (get_option('is_pdf_fontfamily') ? get_option('is_pdf_fontfamily') : 'times-roman') . '; /* Replace Arial with your desired font family */
+            }
             table {
             width: 100%;
             border-collapse: collapse;
@@ -834,14 +1670,21 @@ class WooInvoicePlus
             $get_pdf_subheading_color   = get_option('get_pdf_subheading_color') ? get_option('get_pdf_subheading_color') : '#000000';
             $get_pdf_logo               = get_option('pdf_logo_path') ? esc_url(wp_get_attachment_url(get_option('pdf_logo_path'))) : '';
 
-            $imgtest    = file_get_contents($get_pdf_logo);
-            $img        = base64_encode($imgtest);
-           
             $content .= '<div id="header">
-                                <table><tr><td></td><td style="text-align: right;">';
-            if (!empty($img)) {
-                $img = base64_encode($imgtest);
-                $content .= '<img src="data:image;base64,'.$img.'">';
+                            <table>
+                                <tr><
+                                td></td>
+                                <td style="text-align: right;">';
+
+            if(!empty($get_pdf_logo)){
+                $imgtest    = file_get_contents($get_pdf_logo);
+                $img        = base64_encode($imgtest);
+            
+
+                                        if (!empty($img)) {
+                                            $img = base64_encode($imgtest);
+                                            $content .= '<a href="'.esc_url( get_site_url() ).'"><img src="data:image;base64,'.$img.'"></a>';
+                                        }
             }
             
             $content .= '</td></tr></table>

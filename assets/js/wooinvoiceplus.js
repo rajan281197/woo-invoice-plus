@@ -17,6 +17,8 @@ jQuery(document).ready(function($) {
         formData.append('is_pdf_generating', jQuery('#pdf-generating-functionality').val() || 'enabled_pdf_generation');
         formData.append('is_pdf_backend_preview', jQuery('#pdf-generating-functionality-backend-preview-status').val() || 'backend_enabled_pdf_preview');
         formData.append('is_pdf_papersize', jQuery('#pdf-generating-papersize').val() || 'a4');
+        formData.append('is_pdf_fontfamily', jQuery('#pdf-generating-fontfamily').val() || 'times-roman');
+        formData.append('is_pdf_password_protected', jQuery('#pdf-password-protection-status').val() || 'no_password');
         formData.append('is_pdf_orientation', jQuery('#pdf-generating-orientation').val() || 'portrait');
         formData.append('is_pdf_generating_backend', jQuery('#pdf-generating-functionality-backend-order-detail').val() || 'backend_enabled_pdf_generation');
         formData.append('is_pdf_generating_myaccount', jQuery('#pdf-generating-functionality-myaccount-order-detail').val() || 'myaccount_enabled_pdf_generation');
@@ -81,6 +83,8 @@ jQuery(document).ready(function($) {
         formData.append('is_pdf_generating', jQuery('#pdf-generating-functionality').val() || 'enabled_pdf_generation');
         formData.append('is_pdf_backend_preview', jQuery('#pdf-generating-functionality-backend-preview-status').val() || 'backend_enabled_pdf_preview');
         formData.append('is_pdf_papersize', jQuery('#pdf-generating-papersize').val() || 'a4');
+        formData.append('is_pdf_fontfamily', jQuery('#pdf-generating-fontfamily').val() || 'times-roman');
+        formData.append('is_pdf_password_protected', jQuery('#pdf-password-protection-status').val() || 'no_password');
         formData.append('is_pdf_orientation', jQuery('#pdf-generating-orientation').val() || 'portrait');
         formData.append('is_pdf_generating_backend', jQuery('#pdf-generating-functionality-backend-order-detail').val() || 'backend_enabled_pdf_generation');
         formData.append('is_pdf_generating_myaccount', jQuery('#pdf-generating-functionality-myaccount-order-detail').val() || 'myaccount_enabled_pdf_generation');
@@ -146,6 +150,7 @@ jQuery(document).ready(function($) {
         });
 
         fileFrame.on('select', function() {
+            
             var attachment = fileFrame.state().get('selection').first().toJSON();
 
             // Set the image preview
@@ -158,6 +163,20 @@ jQuery(document).ready(function($) {
             $('.wpo_remove_image_button').show();
         });
 
+        fileFrame.on('open', function() {
+            // Get the attachment to preselect
+            var attachmentId = jQuery('#header_logo').val();
+
+            var attachmentIdToSelect = attachmentId; // Replace 522 with the ID of your desired image
+            var selection = fileFrame.state().get('selection');
+            var attachment = wp.media.attachment(attachmentIdToSelect);
+    
+            // Preselect the desired image
+            attachment.fetch();
+            selection.add(attachment);
+        });
+
+        
         fileFrame.open();
     });
 
@@ -175,6 +194,61 @@ jQuery(document).ready(function($) {
         // Hide the remove image button
         $(this).hide();
     });
+    
+    $('#pdf-preview-button').on('click', function() {
+        var pdfUrl = wooinvoiceplus_ajax_object.default_pdf;
+        checkPdfPassword(pdfUrl);
+    });
+
+    // Function to check if PDF is password-protected
+    function checkPdfPassword(pdfUrl) {
+        // Use a HEAD request to check if PDF is password-protected
+        $.ajax({
+            type: 'HEAD',
+            url: pdfUrl,
+            success: function(data, textStatus, xhr) {
+                // Check if the PDF has a Content-Disposition header indicating it's an attachment (password-protected)
+                var contentDisposition = xhr.getResponseHeader('Content-Disposition');
+                if (contentDisposition && contentDisposition.indexOf('attachment') !== -1) {
+                    // Prompt user for password
+                    var password = prompt('Enter PDF password:');
+                    if (password !== null && password !== '') {
+                        // Open the PDF in FancyBox with the provided password
+                        $.fancybox.open({
+                            src: pdfUrl,
+                            type: 'iframe',
+                            opts: {
+                                iframe: {
+                                    preload: false,
+                                    attr: {
+                                        scrolling: 'auto'
+                                    }
+                                },
+                                pdf: {
+                                    password: password
+                                }
+                            }
+                        });
+                    }
+                } else {
+                    // Open the PDF directly in FancyBox
+                    $.fancybox.open({
+                        src: pdfUrl,
+                        type: 'iframe',
+                        iframe: {
+                            preload: false,
+                            attr: {
+                                scrolling: 'auto'
+                            }
+                        }
+                    });
+                }
+            },
+            error: function(xhr, textStatus, errorThrown) {
+                console.error('Error checking PDF password:', errorThrown);
+            }
+        });
+    }
 
     
 
