@@ -11,6 +11,7 @@ jQuery(document).ready(function($) {
         
         var formData = new FormData();
         formData.append('action', 'save_global_settings_wooinvoiceplus');
+        formData.append('nonce', wooinvoiceplus_ajax_object.nonce);
 
         var attachmentId = jQuery('#header_logo').val();
         formData.append('header_logo_attachment_id', attachmentId);
@@ -18,6 +19,16 @@ jQuery(document).ready(function($) {
         formData.append('is_pdf_backend_preview', jQuery('#pdf-generating-functionality-backend-preview-status').val() || 'backend_enabled_pdf_preview');
         formData.append('is_pdf_papersize', jQuery('#pdf-generating-papersize').val() || 'a4');
         formData.append('is_pdf_fontfamily', jQuery('#pdf-generating-fontfamily').val() || 'times-roman');
+        jQuery('.checkbox-wrapper input[type="checkbox"]').each(function() {
+            if (jQuery(this).is(':checked')) {
+                formData.append('pdf_attach_to_order_status[]', jQuery(this).val());
+            } else {
+                // Append an empty value or any other indicator for unchecked checkboxes
+                formData.append('pdf_attach_to_order_status[]', '');
+            }
+        });
+        
+        
         formData.append('is_pdf_password_protected', jQuery('#pdf-password-protection-status').val() || 'no_password');
         formData.append('is_pdf_orientation', jQuery('#pdf-generating-orientation').val() || 'portrait');
         formData.append('is_pdf_generating_backend', jQuery('#pdf-generating-functionality-backend-order-detail').val() || 'backend_enabled_pdf_generation');
@@ -78,12 +89,22 @@ jQuery(document).ready(function($) {
         // var fileInput = jQuery('#pdf_logo_upload')[0].files[0];
         
         var formData = new FormData();
+        formData.append('nonce', wooinvoiceplus_ajax_object.nonce);
         formData.append('action', 'reset_plugin_settings');
         formData.append('pdf_logo_upload', jQuery('#pdf_logo_upload').val() || '');
         formData.append('is_pdf_generating', jQuery('#pdf-generating-functionality').val() || 'enabled_pdf_generation');
         formData.append('is_pdf_backend_preview', jQuery('#pdf-generating-functionality-backend-preview-status').val() || 'backend_enabled_pdf_preview');
         formData.append('is_pdf_papersize', jQuery('#pdf-generating-papersize').val() || 'a4');
         formData.append('is_pdf_fontfamily', jQuery('#pdf-generating-fontfamily').val() || 'times-roman');
+        jQuery('.checkbox-wrapper input[type="checkbox"]').each(function() {
+            if (jQuery(this).is(':checked')) {
+                formData.append('pdf_attach_to_order_status[]', jQuery(this).val());
+            } else {
+                // Append an empty value or any other indicator for unchecked checkboxes
+                formData.append('pdf_attach_to_order_status[]', '');
+            }
+        });
+        
         formData.append('is_pdf_password_protected', jQuery('#pdf-password-protection-status').val() || 'no_password');
         formData.append('is_pdf_orientation', jQuery('#pdf-generating-orientation').val() || 'portrait');
         formData.append('is_pdf_generating_backend', jQuery('#pdf-generating-functionality-backend-order-detail').val() || 'backend_enabled_pdf_generation');

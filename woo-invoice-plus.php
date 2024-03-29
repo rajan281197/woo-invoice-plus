@@ -66,6 +66,7 @@ class WooInvoicePlus
 
         add_action( 'wp_ajax_reset_plugin_settings', array( $this, 'reset_plugin_settings' ) );
         add_action( 'wp_ajax_nopriv_reset_plugin_settings', array( $this, 'reset_plugin_settings' ) );
+
         add_filter('plugin_action_links_' . plugin_basename(__FILE__), array($this, 'add_settings_link'));
 
         add_action( 'woocommerce_email_before_order_table', array( $this,'add_custom_text_to_new_order_email'), 20, 4 );
@@ -87,56 +88,79 @@ class WooInvoicePlus
     {
         if (!class_exists('WooCommerce')) {
             echo '<div class="notice notice-error"><p>';
-            echo __('WooCommerce is not installed / Activated. Please install and activate WooCommerce to use Woo Invoice Plus.', 'woo-invoice-plus');
+            echo esc_html__('WooCommerce is not installed / Activated. Please install and activate WooCommerce to use Woo Invoice Plus.', 'woo-invoice-plus');
             echo '</p></div>';
-
+    
             deactivate_plugins(plugin_basename(__FILE__));
-
         }
     }
 
  
     public function send_attach_pdf_to_emails( $attachments, $email_id, $order, $email ) {
-        
-            $order_id = $order->get_id();
-            $upload_dir = wp_upload_dir();
-            
-            $attachments[] = $upload_dir['basedir'] . '/Woo Invoice PDF/' . $order_id . '.pdf';
+        // echo "<pre>";
+        // print_r($email_id);
+        // echo "</pre>";
+        // exit;
+        $pdf_attach_to_order_status = maybe_unserialize(get_option('pdf_attach_to_order_status'));
 
-        return $attachments;
+        if (is_array($pdf_attach_to_order_status) && in_array($email_id, $pdf_attach_to_order_status)) {
+
+                $order_id = $order->get_id();
+                $upload_dir = wp_upload_dir();
+                
+                $attachments[] = $upload_dir['basedir'] . '/Woo Invoice PDF/' . $order_id . '.pdf';
+
+            return $attachments;
+
+        }
     }
 
-        // Add custom text to new order email
-        public function add_custom_text_to_new_order_email( $order, $sent_to_admin, $plain_text, $email ) {
-            // Only add custom text to the customer email
-            if ( $email->id == 'customer_invoice' || $email->id == 'customer_completed_order' || $email->id == 'new_order' ) {
+    // Add custom text to new order email
+    public function add_custom_text_to_new_order_email( $order, $sent_to_admin, $plain_text, $email ) {
+        // Only add custom text to the customer email
+        // echo "<pre>";
+        // print_r($email);
+        // print_r($email->id);
+        // echo "</pre>";
+        // if ( $email->id == 'customer_invoice' || $email->id == 'customer_completed_order' || $email->id == 'new_order' ) {
+        // $pdf_attach_to_order_status = print_r(maybe_unserialize(get_option('pdf_attach_to_order_status')));
+        $pdf_attach_to_order_status = maybe_unserialize(get_option('pdf_attach_to_order_status'));
+
+        if (is_array($pdf_attach_to_order_status) && in_array($email->id, $pdf_attach_to_order_status)) {
+            $order_id = $order->get_id();
+
+            $is_pdf_password_protected = get_post_meta($order_id, '_pdf_password_protected', true);
+
+            if ($is_pdf_password_protected) {
+
+                $customer_first_name = $order->get_billing_first_name();
+
+                // Get the first 4 letters of the customer's first name
+                $customer_first_name_4_letters = strtoupper( substr( $customer_first_name, 0, 4 ) );
+
+                // Get the order ID
                 $order_id = $order->get_id();
 
-                $is_pdf_password_protected = get_post_meta($order_id, '_pdf_password_protected', true);
+                // Set the PDF password as the customer's first 4 letters of their name followed by the order ID
+                $pdf_password = $customer_first_name_4_letters . $order_id;
 
-                if ($is_pdf_password_protected) {
+                echo '<h2 class="email-upsell-title">' . esc_html__('Your Password to view Invoice PDF is: ', 'woo-invoice-plus') . esc_html($pdf_password) . '</h2>';
 
-                    $customer_first_name = $order->get_billing_first_name();
-
-                    // Get the first 4 letters of the customer's first name
-                    $customer_first_name_4_letters = strtoupper( substr( $customer_first_name, 0, 4 ) );
-
-                    // Get the order ID
-                    $order_id = $order->get_id();
-
-                    // Set the PDF password as the customer's first 4 letters of their name followed by the order ID
-                    $pdf_password = $customer_first_name_4_letters . $order_id;
-
-                    echo '<h2 class="email-upsell-title">Your Password to view Invoice PDF is : "'.$pdf_password.'"</p>';
-                }
             }
         }
+    }
+
     
 
     // Define the function to reset settings
     public function reset_plugin_settings() {
         // Check if the option is not already set
         // if (get_option('pdf_logo_path')) {
+             // Verify nonce
+            if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( $_POST['nonce'], 'save_global_settings_nonce' ) ) {
+                wp_send_json_error( 'Invalid nonce' );
+            }
+
             delete_option('pdf_logo_path');
         // }
             update_option('is_pdf_backend_preview', 'backend_enabled_pdf_preview');
@@ -278,16 +302,19 @@ class WooInvoicePlus
                                     td></td>
                                     <td style="text-align: right;">';
 
-                if(!empty($get_pdf_logo)){
-                    $imgtest    = file_get_contents($get_pdf_logo);
-                    $img        = base64_encode($imgtest);
+                if (!empty($get_pdf_logo)) {
+                    $response = wp_remote_get($get_pdf_logo);
                 
-
-                                            if (!empty($img)) {
-                                                $img = base64_encode($imgtest);
-                                                $content .= '<a href="'.esc_url( get_site_url() ).'"><img src="data:image;base64,'.$img.'"></a>';
-                                            }
+                    if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
+                        $imgtest = wp_remote_retrieve_body($response);
+                        $img = base64_encode($imgtest);
+                
+                        if (!empty($img)) {
+                            $content .= '<a href="' . esc_url(get_site_url()) . '"><img src="data:image;base64,' . $img . '"></a>';
+                        }
+                    }
                 }
+                
                 
                 $content .= '</td></tr></table>
                                 </div>
@@ -642,17 +669,20 @@ class WooInvoicePlus
 		// echo __( 'This is the page content', 'woo-invoice-plus' );
         ?>
 		
+    <?php 
+        // print_r(implode(',',get_option('pdf_attach_to_order_status', '')));
+    ?>
     <div class="form-container">
 
         <?php if(get_option('is_pdf_backend_preview') === 'backend_enabled_pdf_preview') : ?>
-        <div class="pdf-preview-btn-container">
-            <button id="pdf-preview-button"  class="button button-primary button-large">
-
-                <?php _e('Preview PDF', 'woo-invoice-plus'); ?> 
-                <span class="dashicons dashicons-media-document"></span>
-            </button>
-        </div>
+            <div class="pdf-preview-btn-container">
+                <button id="pdf-preview-button" class="button button-primary button-large">
+                    <?php esc_html_e('Preview PDF', 'woo-invoice-plus'); ?> 
+                    <span class="dashicons dashicons-media-document"></span>
+                </button>
+            </div>
         <?php endif; ?>
+        
 
         <h2><?php echo esc_html( get_admin_page_title() ); ?></h2>
         <form action="#" class="form-row" method="POST" enctype="multipart/form-data">
@@ -768,7 +798,9 @@ class WooInvoicePlus
                     <option value="no_password" <?php echo (get_option('is_pdf_password_protected') === 'no_password') ? 'selected' : ''; ?>>No Password Protection</option>
                     <option value="password_protected" <?php echo (get_option('is_pdf_password_protected') === 'password_protected') ? 'selected' : ''; ?>>Password Protected</option>
                 </select>
-                <p class="description">Preview PDF Password : <b style="color:green;">DEMO123</b></p>
+                <?php if(get_option('is_pdf_backend_preview') === 'backend_enabled_pdf_preview' && get_option('is_pdf_password_protected') === 'password_protected') : ?>
+                    <p class="description">Preview PDF Password : <b style="color:green;">DEMO123</b></p>
+                <?php endif; ?>
 
             </div>
 
@@ -863,18 +895,18 @@ class WooInvoicePlus
 
             <div class="color-input-container col">
                 <label for="color-input">Main-heading color:</label>
-                <input type="color" id="woo_invoice_bg_color" name="woo_invoice_bg_color" value="<?php echo get_option('get_pdf_bg_color') ? get_option('get_pdf_bg_color') : '#e10505'; ?>">
+                <input type="color" id="woo_invoice_bg_color" name="woo_invoice_bg_color" value="<?php echo esc_attr(get_option('get_pdf_bg_color', '#e10505')); ?>">
             </div>
 
             <div class="color-input-container col">
                 <label for="color-input">Sub-heading color:</label>
-                <input type="color" id="woo_invoice_subheading_color" name="woo_invoice_subheading_color" value="<?php echo get_option('get_pdf_subheading_color') ? get_option('get_pdf_subheading_color') : '#000000'; ?>">
+                <input type="color" id="woo_invoice_subheading_color" name="woo_invoice_subheading_color" value="<?php echo esc_attr( get_option('get_pdf_subheading_color', '#000000') ); ?>">
             </div>
 
             <div class="col">
                 <label for="pdf_logo_upload">Upload PDF Logo:</label>
                 <!-- <input type="file" id="pdf_logo_upload" name="pdf_logo_upload"> -->
-                <input id="header_logo" name="wpo_wcpdf_settings_general[header_logo]" type="hidden" value="<?php echo (get_option('pdf_logo_path')) ? get_option('pdf_logo_path') : ''; ?>" class="media-upload-id">
+                <input id="header_logo" name="wpo_wcpdf_settings_general[header_logo]" type="hidden" value="<?php echo esc_attr( get_option('pdf_logo_path', '') ); ?>" class="media-upload-id">
                 <img src="<?php echo esc_url(wp_get_attachment_url(get_option('pdf_logo_path'))); ?>" style="<?php echo (get_option('pdf_logo_path')) ? '' : 'display:none'; ?>" id="img-header_logo" class="media-upload-preview">
                 <span class="button wpo_upload_image_button header_logo" data-uploader_title="Select or upload your invoice header/logo" data-uploader_button_text="Set image" data-remove_button_text="Remove image" data-input_id="header_logo">Set image</span>
                 <span class="button wpo_remove_image_button" data-input_id="header_logo" style="<?php echo (get_option('pdf_logo_path')) ? '' : 'display:none'; ?>">Remove image</span>
@@ -882,6 +914,56 @@ class WooInvoicePlus
 
                 <p class="description">Upload a logo image for your PDF invoices.</p>
             </div>
+
+            <div class="col">
+                <label for="woo_invoice-customer_note">PDF Attach To:</label>
+
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" name="pdf_attach_to_order_status" value="new_order" <?php echo (is_array(get_option('pdf_attach_to_order_status')) && in_array('new_order', get_option('pdf_attach_to_order_status'))) ? 'checked' : ''; ?> >
+                    <label for="pdf_attach_to_order_status">New order (Admin Email)</label>
+                </div>
+
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" name="pdf_attach_to_order_status" value="cancelled_order" <?php echo (is_array(get_option('pdf_attach_to_order_status')) && in_array('cancelled_order', get_option('pdf_attach_to_order_status'))) ? 'checked' : ''; ?>>
+                    <label for="pdf_attach_to_order_status">Cancelled order</label>
+                </div>
+
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" name="pdf_attach_to_order_status" value="failed_order" <?php echo (is_array(get_option('pdf_attach_to_order_status')) && in_array('failed_order', get_option('pdf_attach_to_order_status'))) ? 'checked' : ''; ?>>
+                    <label for="pdf_attach_to_order_status">Failed order</label>
+                </div>
+
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" name="pdf_attach_to_order_status" value="customer_on_hold_order" <?php echo (is_array(get_option('pdf_attach_to_order_status')) && in_array('customer_on_hold_order', get_option('pdf_attach_to_order_status'))) ? 'checked' : ''; ?>>
+                    <label for="pdf_attach_to_order_status">Order on-hold</label>
+                </div>
+
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" name="pdf_attach_to_order_status" value="customer_processing_order" <?php echo (is_array(get_option('pdf_attach_to_order_status')) && in_array('customer_processing_order', get_option('pdf_attach_to_order_status'))) ? 'checked' : ''; ?>>
+                    <label for="pdf_attach_to_order_status">Processing order</label>
+                </div>
+
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" name="pdf_attach_to_order_status" value="customer_completed_order" <?php echo (is_array(get_option('pdf_attach_to_order_status')) && in_array('customer_completed_order', get_option('pdf_attach_to_order_status'))) ? 'checked' : ''; ?>>
+                    <label for="pdf_attach_to_order_status">Completed order</label>
+                </div>
+
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" name="pdf_attach_to_order_status" value="customer_refunded_order" <?php echo (is_array(get_option('pdf_attach_to_order_status')) && in_array('customer_refunded_order', get_option('pdf_attach_to_order_status'))) ? 'checked' : ''; ?>>
+                    <label for="pdf_attach_to_order_status">Refunded order</label>
+                </div>
+
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" name="pdf_attach_to_order_status" value="customer_invoice" <?php echo (is_array(get_option('pdf_attach_to_order_status')) && in_array('customer_invoice', get_option('pdf_attach_to_order_status'))) ? 'checked' : ''; ?>>
+                    <label for="pdf_attach_to_order_status">Customer invoice / Order details (Manual email)</label>
+                </div>
+
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" name="pdf_attach_to_order_status" value="customer_note" <?php echo (is_array(get_option('pdf_attach_to_order_status')) && in_array('customer_note', get_option('pdf_attach_to_order_status'))) ? 'checked' : ''; ?>>
+                    <label for="pdf_attach_to_order_status">Customer note</label>
+                </div>
+            </div>
+
 
             <div class="text-center btn-sc"> 
                 <?php submit_button(__('Save Settings', 'woo-invoice-plus'), 'primary', 'woo_invoiceplus_settings',false); ?>
@@ -912,6 +994,7 @@ class WooInvoicePlus
             // Localize the script with data
             $woo_invoice_obj = array(
                 'wooinvoiceplus'    => admin_url('admin-ajax.php'),
+                'nonce'             => wp_create_nonce('save_global_settings_nonce'),
                 'action'            => $this->save_global_settings_wooinvoiceplus(),
                 'default_pdf'       => plugin_dir_url(__FILE__) . 'assets/pdf/woo-invoice-preview.pdf',
 
@@ -928,6 +1011,18 @@ class WooInvoicePlus
 
     public function save_global_settings_wooinvoiceplus()
     {
+
+        // Verify nonce
+        // if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( $_POST['nonce'], 'save_global_settings_nonce' ) ) {
+        //     wp_send_json_error( 'Invalid nonce' );
+        // }
+
+        // Handle checkbox values
+        if (isset($_POST['pdf_attach_to_order_status']) && is_array($_POST['pdf_attach_to_order_status'])) {
+            // Remove empty values (unchecked checkboxes) before updating the option
+            $pdf_attach_to_order_status = array_filter($_POST['pdf_attach_to_order_status']);
+            update_option('pdf_attach_to_order_status', $pdf_attach_to_order_status);
+        }
 
         // Check if a file is uploaded
         if (isset($_POST['header_logo_attachment_id'])) {
@@ -1015,6 +1110,8 @@ class WooInvoicePlus
         if (isset($_POST['display_order_customer_note'])) {
             update_option('display_order_customer_note', $_POST['display_order_customer_note']);
         }
+
+      
 
         // Load the Dompdf library
        
@@ -1118,17 +1215,19 @@ class WooInvoicePlus
                                     td></td>
                                     <td style="text-align: right;">';
 
-                if(!empty($get_pdf_logo)){
-                    $imgtest    = file_get_contents($get_pdf_logo);
-                    $img        = base64_encode($imgtest);
+                if (!empty($get_pdf_logo)) {
+                    $response = wp_remote_get($get_pdf_logo);
                 
-
-                                            if (!empty($img)) {
-                                                $img = base64_encode($imgtest);
-                                                $content .= '<a href="'.esc_url( get_site_url() ).'"><img src="data:image;base64,'.$img.'"></a>';
-                                            }
+                    if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
+                        $imgtest = wp_remote_retrieve_body($response);
+                        $img = base64_encode($imgtest);
+                
+                        if (!empty($img)) {
+                            $content .= '<a href="' . esc_url(get_site_url()) . '"><img src="data:image;base64,' . $img . '"></a>';
+                        }
+                    }
                 }
-                
+                                    
                 $content .= '</td></tr></table>
                                 </div>
                                 
@@ -1304,18 +1403,7 @@ class WooInvoicePlus
                                         endif;
 
 
-                        $content .= '</table><form method="post" action="">
-                        <label for="name">Name:</label>
-                        <input type="text" id="name" name="name" required><br><br>
-                        
-                        <label for="email">Email:</label>
-                        <input type="email" id="email" name="email" required><br><br>
-                        
-                        <label for="message">Message:</label><br>
-                        <textarea id="message" name="message" rows="4" cols="50" required></textarea><br><br>
-                        
-                        <input type="submit" value="Submit">
-                    </form>';
+                        $content .= '</table>';
 
                 endif;
 
@@ -1401,13 +1489,13 @@ class WooInvoicePlus
                 // Set the PDF password as the customer's first 4 letters of their name followed by the order ID
                 $pdf_password = $customer_first_name_4_letters . $woo_order_id;
 
-                echo '<h5 class="email-upsell-title">Your Password to view Invoice PDF is : "' . $pdf_password . '"</h5>';
+                echo '<h5 class="email-upsell-title">Your Password to view Invoice PDF is : "' . esc_html($pdf_password) . '"</h5>';
             }
             
-            echo '<a href="' . esc_url($download_url) . '" class="button" download>' . __('Download Invoice', 'woo-invoice-plus') . '</a>';
+            echo '<a href="' . esc_url($download_url) . '" class="button" download>' . esc_html__('Download Invoice', 'woo-invoice-plus') . '</a>';
         } else {
             $generate_url = $this->generate_pdf_on_order_placement($order_id);
-            echo '<a href="' . esc_url($generate_url) . '" class="button">' . __('Generate Invoice', 'woo-invoice-plus') . '</a>';
+            echo '<a href="' . esc_url($generate_url) . '" class="button">' . esc_html__('Generate Invoice', 'woo-invoice-plus') . '</a>';
             echo "<br><b>If PDF not generated correctly then please try again to generate!!</b>";
 
         }
@@ -1426,7 +1514,7 @@ class WooInvoicePlus
                 wp_redirect($download_url);
                 exit;
             } else {
-                wp_die(__('Invoice not found.', 'woo-invoice-plus'));
+                wp_die(esc_html__('Invoice not found.', 'woo-invoice-plus'));
             }
         }
     }
@@ -1538,7 +1626,7 @@ class WooInvoicePlus
 
             // Output the download button
         if(!is_admin()){
-            echo '<a href="' . $download_url  . '" class="button" download>Download Order PDF</a>';
+            echo '<a href="' . esc_url($download_url) . '" class="button" download>Download Order PDF</a>';
         }
         
         update_post_meta($order_id, '_temp_pdf_path', $download_url);
@@ -1548,7 +1636,7 @@ class WooInvoicePlus
 
     public function add_custom_text_after_order_table( $order ){
         // Check if the order is of a specific status, such as 'completed'
-        if ( $order->has_status( array('completed','processing') ) ) {
+        if ( $order->has_status( array('completed','processing','on-hold') ) ) {
             // Output your custom text
             $order_id = $order->ID;
             $order = wc_get_order($order_id);
@@ -1570,10 +1658,10 @@ class WooInvoicePlus
                     // Set the PDF password as the customer's first 4 letters of their name followed by the order ID
                     $pdf_password = $customer_first_name_4_letters . $woo_order_id;
     
-                    echo '<h5 class="email-upsell-title">Your Password to view Invoice PDF is : "' . $pdf_password . '"</h5>';
+                    echo '<h5 class="email-upsell-title">Your Password to view Invoice PDF is : "' . esc_html($pdf_password) . '"</h5>';
                 }
 
-                echo '<a href="' . esc_url($download_url) . '" class="button" download>' . __('Download Invoice', 'woo-invoice-plus') . '</a>';
+                echo '<a href="' . esc_url($download_url) . '" class="button" download>' . esc_html__('Download Invoice', 'woo-invoice-plus') . '</a>';
             }
             
         } else {
@@ -1676,16 +1764,19 @@ class WooInvoicePlus
                                 td></td>
                                 <td style="text-align: right;">';
 
-            if(!empty($get_pdf_logo)){
-                $imgtest    = file_get_contents($get_pdf_logo);
-                $img        = base64_encode($imgtest);
+            if (!empty($get_pdf_logo)) {
+                $response = wp_remote_get($get_pdf_logo);
             
-
-                                        if (!empty($img)) {
-                                            $img = base64_encode($imgtest);
-                                            $content .= '<a href="'.esc_url( get_site_url() ).'"><img src="data:image;base64,'.$img.'"></a>';
-                                        }
+                if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
+                    $imgtest = wp_remote_retrieve_body($response);
+                    $img = base64_encode($imgtest);
+            
+                    if (!empty($img)) {
+                        $content .= '<a href="' . esc_url(get_site_url()) . '"><img src="data:image;base64,' . $img . '"></a>';
+                    }
+                }
             }
+                                
             
             $content .= '</td></tr></table>
                             </div>
