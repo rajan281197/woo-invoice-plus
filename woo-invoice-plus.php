@@ -201,6 +201,16 @@ class WooInvoicePlus
 
             update_option('display_order_customer_note', 'enabled_order_customer_note');
 
+            // Your array a containing allowed values
+            $reset_order_status = array(
+                0 => "new_order",
+                4 => "customer_processing_order"
+            );
+
+            update_option('pdf_attach_to_order_status', $reset_order_status);
+
+
+
             // Load the Dompdf library
             
             // Get the order object
@@ -631,6 +641,17 @@ class WooInvoicePlus
         if (!get_option('display_order_customer_note')) {
             update_option('display_order_customer_note', 'enabled_order_customer_note');
         }
+
+        // Your array a containing allowed values
+        if (!get_option('pdf_attach_to_order_status')) {
+            $default_order_status = array(
+                0 => "new_order",
+                4 => "customer_processing_order"
+            );
+        
+            update_option('pdf_attach_to_order_status', $default_order_status);
+        }
+        
 
      }
 

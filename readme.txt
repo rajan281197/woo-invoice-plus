@@ -1,5 +1,5 @@
 === Woo Invoice Plus ===
-Contributors: YourName
+Contributors: rajanpanchal2028
 Tags: invoices, woocommerce, pdf, billing, accounting
 Requires at least: 4.0
 Tested up to: 5.9
