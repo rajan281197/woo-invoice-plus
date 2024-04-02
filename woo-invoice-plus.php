@@ -117,6 +117,9 @@ class WooInvoicePlus
 
         endif;
 
+        add_filter( 'manage_edit-shop_order_columns', array($this,'custom_shop_order_column') );
+        add_filter( 'manage_shop_order_posts_custom_column', array($this,'custom_shop_order_column_content') );
+
         register_activation_hook(__FILE__, array($this, 'woo_invoice_plugin_activation'));
     }
 
@@ -160,7 +163,53 @@ class WooInvoicePlus
             return $actions;
     }
 
+    // Add custom column header
+    public function custom_shop_order_column( $columns ) {
+        $columns['invoice_download'] = __( 'Invoice Download', 'woo-invoice-plus' );
+        return $columns;
+    }
  
+    // Add content to the custom column
+    public function custom_shop_order_column_content( $column ) {
+        global $post;
+    
+        if ( $column == 'invoice_download' ) {
+            $order_id = $post->ID;
+            $invoice_exists = get_post_meta( $order_id, '_temp_pdf_path', true );
+    
+            if ( $invoice_exists ) {
+                $download_url = $invoice_exists; // Assuming the download URL is stored in '_temp_pdf_path' meta data
+    
+                printf(
+                    '<a href="%s" class="button">%s</a>',
+                    esc_url( $download_url ),
+                    __( 'Download Invoice', 'woo-invoice-plus' )
+                );
+    
+                $is_pdf_password_protected = get_post_meta( $order_id, '_pdf_password_protected', true );
+    
+                if ( $is_pdf_password_protected ) {
+                    $customer_first_name = get_post_meta( $order_id, '_billing_first_name', true );
+    
+                    // Get the first 4 letters of the customer's first name
+                    $customer_first_name_4_letters = strtoupper( substr( $customer_first_name, 0, 4 ) );
+    
+                    // Set the PDF password as the customer's first 4 letters of their name followed by the order ID
+                    $pdf_password = $customer_first_name_4_letters . $order_id;
+    
+                    printf(
+                        '<p class="invoice-password-info">%s %s</p>',
+                        esc_html__( 'Your Password to view Invoice PDF is:', 'woo-invoice-plus' ),
+                        esc_html( $pdf_password )
+                    );
+                }
+            } else {
+                echo __( 'Invoice not available', 'woo-invoice-plus' );
+            }
+        }
+    }
+    
+
     public function send_attach_pdf_to_emails( $attachments, $email_id, $order, $email ) {
         // echo "<pre>";
         // print_r($email_id);
