@@ -19,7 +19,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die; // Exit if accessed directly
 }
 
-
 class WooInvoicePlus
 {
 
@@ -35,7 +34,47 @@ class WooInvoicePlus
 
             if(get_option('is_pdf_generating') === 'enabled_pdf_generation') :
 
-                add_action('woocommerce_order_status_processing', array($this, 'generate_pdf_on_order_placement'), 10, 1);
+                if((is_array(get_option('pdf_attach_to_order_status')) && in_array('cancelled_order', get_option('pdf_attach_to_order_status')))):
+
+                    add_action( 'woocommerce_order_status_cancelled', array($this, 'generate_pdf_on_order_placement'), 10, 1);
+                
+                endif;
+
+                if((is_array(get_option('pdf_attach_to_order_status')) && in_array('failed_order', get_option('pdf_attach_to_order_status')))):
+
+                    add_action( 'woocommerce_order_status_failed', array($this, 'generate_pdf_on_order_placement'), 10, 1);
+
+                endif;
+
+                if((is_array(get_option('pdf_attach_to_order_status')) && in_array('customer_on_hold_order', get_option('pdf_attach_to_order_status')))):
+
+                    add_action( 'woocommerce_order_status_on-hold', array($this, 'generate_pdf_on_order_placement'), 10, 1);
+                
+                endif;
+
+                // if((is_array(get_option('pdf_attach_to_order_status')) && in_array('customer_on_hold_order', get_option('pdf_attach_to_order_status')))):
+
+                //     add_action('woocommerce_order_status_pending', array($this, 'generate_pdf_on_order_placement'), 10, 1);
+
+                // endif;
+
+                if((is_array(get_option('pdf_attach_to_order_status')) && in_array('customer_processing_order', get_option('pdf_attach_to_order_status')))):
+
+                    add_action( 'woocommerce_order_status_processing', array($this, 'generate_pdf_on_order_placement'), 10, 1);
+
+                endif;
+
+                if((is_array(get_option('pdf_attach_to_order_status')) && in_array('customer_completed_order', get_option('pdf_attach_to_order_status')))):
+
+                add_action( 'woocommerce_order_status_completed', array($this, 'generate_pdf_on_order_placement'), 10, 1);
+
+                endif;
+
+                if((is_array(get_option('pdf_attach_to_order_status')) && in_array('customer_refunded_order', get_option('pdf_attach_to_order_status')))):
+
+                    add_action( 'woocommerce_order_status_refunded', array($this, 'generate_pdf_on_order_placement'), 10, 1);
+
+                endif;
 
             endif;
 
@@ -72,6 +111,12 @@ class WooInvoicePlus
         add_action( 'woocommerce_email_before_order_table', array( $this,'add_custom_text_to_new_order_email'), 20, 4 );
         add_filter( 'woocommerce_email_attachments', array( $this,'send_attach_pdf_to_emails'), 10, 4 );
 
+        if(get_option('is_pdf_generating') === 'enabled_pdf_generation') :
+
+            add_filter( 'woocommerce_my_account_my_orders_actions', array( $this, 'woo_invoice_my_account_order_action'), 9999, 2 );
+
+        endif;
+
         register_activation_hook(__FILE__, array($this, 'woo_invoice_plugin_activation'));
     }
 
@@ -93,6 +138,26 @@ class WooInvoicePlus
     
             deactivate_plugins(plugin_basename(__FILE__));
         }
+    }
+
+    public function woo_invoice_my_account_order_action( $actions, $order ) {
+        // if ( $order->has_status( 'completed' ) ) {
+            $order_id = $order->get_id();
+            $invoice_exists = $this->check_invoice_exists($order_id);
+
+            $invoice_exists_meta = get_post_meta($order_id, '_temp_pdf_path', true);
+
+            if ($invoice_exists && $invoice_exists_meta) {
+
+                    $download_url = $this->get_invoice_download_url($order_id);
+
+                    $actions['order-again'] = array(
+                        'url' => wp_nonce_url( esc_url($download_url), 'woo-invoice-plus' ),
+                        'name' => __( 'Woo Invoice', 'woocommerce' ),
+                    );
+                // }
+            }
+            return $actions;
     }
 
  
