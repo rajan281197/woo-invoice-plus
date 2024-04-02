@@ -54,7 +54,7 @@ class WooInvoicePlus
 
                 // if((is_array(get_option('pdf_attach_to_order_status')) && in_array('customer_on_hold_order', get_option('pdf_attach_to_order_status')))):
 
-                //     add_action('woocommerce_order_status_pending', array($this, 'generate_pdf_on_order_placement'), 10, 1);
+                    //     add_action('woocommerce_order_status_pending', array($this, 'generate_pdf_on_order_placement'), 10, 1);
 
                 // endif;
 
@@ -66,7 +66,7 @@ class WooInvoicePlus
 
                 if((is_array(get_option('pdf_attach_to_order_status')) && in_array('customer_completed_order', get_option('pdf_attach_to_order_status')))):
 
-                add_action( 'woocommerce_order_status_completed', array($this, 'generate_pdf_on_order_placement'), 10, 1);
+                    add_action( 'woocommerce_order_status_completed', array($this, 'generate_pdf_on_order_placement'), 10, 1);
 
                 endif;
 
@@ -176,14 +176,16 @@ class WooInvoicePlus
         if ( $column == 'invoice_download' ) {
             $order_id = $post->ID;
             $invoice_exists = get_post_meta( $order_id, '_temp_pdf_path', true );
+            $invoice_exists_url = $this->check_invoice_exists($order_id);
+
     
-            if ( $invoice_exists ) {
+            if ( $invoice_exists && $invoice_exists_url ) {
                 $download_url = $invoice_exists; // Assuming the download URL is stored in '_temp_pdf_path' meta data
     
                 printf(
                     '<a href="%s" class="button">%s</a>',
                     esc_url( $download_url ),
-                    __( 'Download Invoice', 'woo-invoice-plus' )
+                    esc_html__( 'Download Invoice', 'woo-invoice-plus' )
                 );
     
                 $is_pdf_password_protected = get_post_meta( $order_id, '_pdf_password_protected', true );
@@ -204,7 +206,7 @@ class WooInvoicePlus
                     );
                 }
             } else {
-                echo __( 'Invoice not available', 'woo-invoice-plus' );
+                echo esc_html__( 'Invoice not available', 'woo-invoice-plus' );
             }
         }
     }
@@ -622,49 +624,70 @@ class WooInvoicePlus
                 $content .= '</body>
                         </html>';
 
-            
+            // Get the WordPress filesystem
+            global $wp_filesystem;
 
-            // Create a new Dompdf instance
-            $dompdf = new Dompdf\Dompdf();
+            // Initialize the WordPress filesystem if it's not already loaded
+            if ( ! isset( $wp_filesystem ) ) {
+                require_once ABSPATH . '/wp-admin/includes/file.php';
+                WP_Filesystem();
+            }
 
-            // Load the PDF content
-            $dompdf->loadHtml($content);
+            if ( is_wp_error( $wp_filesystem ) ) {
+                $error_message = $wp_filesystem->get_error_message();
+                // Failed to initialize the WordPress filesystem, handle error here if needed
+                echo 'Error: ' . esc_html( $error_message );
+            } else {
+                
+                // Create a new Dompdf instance
+                $dompdf = new Dompdf\Dompdf();
 
-            // Set paper size and orientation
-            $dompdf->setPaper(
-                                ( get_option('is_pdf_papersize') === 'a4') ? 'a4' : get_option('is_pdf_papersize'),
-                                ( get_option('is_pdf_orientation') === 'portrait') ? 'portrait' : get_option('is_pdf_orientation')
-                            );
+                // Load the PDF content
+                $dompdf->loadHtml($content);
 
-            // Render the PDF
-            $dompdf->render();
-            
-            // $dompdf->stream("",array("Attachment"=> false));
-            if(get_option('is_pdf_password_protected') === 'password_protected') : 
-                // Password protection
-                    $cpdf = $dompdf->getCanvas()->get_cpdf();
+                // Set paper size and orientation
+                $dompdf->setPaper(
+                                    ( get_option('is_pdf_papersize') === 'a4') ? 'a4' : get_option('is_pdf_papersize'),
+                                    ( get_option('is_pdf_orientation') === 'portrait') ? 'portrait' : get_option('is_pdf_orientation')
+                                );
 
-                    // Set encryption with strong passwords:
-                    // - User password (optional, for opening restrictions) - Use a complex password with at least 12 characters, including uppercase, lowercase, numbers, and symbols.
-                    $userPassword = 'DEMO123';
-                    // - Owner password (mandatory for full access) - Use a different, equally strong password.
-                    $ownerPassword = 'DEMO123';
-                    $allowedActions = ['print', 'copy']; // Adjust based on your requirements
+                // Render the PDF
+                $dompdf->render();
+                
+                // $dompdf->stream("",array("Attachment"=> false));
+                if(get_option('is_pdf_password_protected') === 'password_protected') : 
+                    // Password protection
+                        $cpdf = $dompdf->getCanvas()->get_cpdf();
 
-                    $cpdf->setEncryption($userPassword, $ownerPassword, $allowedActions);
+                        // Set encryption with strong passwords:
+                        // - User password (optional, for opening restrictions) - Use a complex password with at least 12 characters, including uppercase, lowercase, numbers, and symbols.
+                        $userPassword = 'DEMO123';
+                        // - Owner password (mandatory for full access) - Use a different, equally strong password.
+                        $ownerPassword = 'DEMO123';
+                        $allowedActions = ['print', 'copy']; // Adjust based on your requirements
+
+                        $cpdf->setEncryption($userPassword, $ownerPassword, $allowedActions);
 
                 endif;
-            // Get the PDF output
-            $pdf_output = $dompdf->output();
+
+                // Get the PDF output
+                $pdf_output = $dompdf->output();
 
 
-            $pdf_file_path = plugin_dir_path(__FILE__) . 'assets/pdf/woo-invoice-preview.pdf';
+                $pdf_file_path = plugin_dir_path(__FILE__) . 'assets/pdf/woo-invoice-preview.pdf';
 
-            file_put_contents($pdf_file_path, $pdf_output);
+                // Write the PDF content to the file
+                $write_result = $wp_filesystem->put_contents( $pdf_file_path, $pdf_output );
+
+                // Check if the file write operation was successful
+                if ( $write_result === false ) {
+                    // Failed to write the PDF content to the file, handle error here if needed
+                    echo 'Error: Failed to write PDF content to the file.';
+                } else {
+                    // File write successful, proceed with further actions if needed
+                }
+            }
         }
-
-    
-        // Add other option checks and updates here...
     }
 
      // Method to handle plugin activation
@@ -1545,47 +1568,70 @@ class WooInvoicePlus
                 $content .= '</body>
                         </html>';
 
-            
+            // Get the WordPress filesystem
+            global $wp_filesystem;
 
-            // Create a new Dompdf instance
-            $dompdf = new Dompdf\Dompdf();
+            // Initialize the WordPress filesystem if it's not already loaded
+            if ( ! isset( $wp_filesystem ) ) {
+                require_once ABSPATH . '/wp-admin/includes/file.php';
+                WP_Filesystem();
+            }
 
-            // Load the PDF content
-            $dompdf->loadHtml($content);
+            if ( is_wp_error( $wp_filesystem ) ) {
+                $error_message = $wp_filesystem->get_error_message();
+                // Failed to initialize the WordPress filesystem, handle error here if needed
+                echo 'Error: ' . esc_html( $error_message );
+            } else {
 
-            // Set paper size and orientation
-            $dompdf->setPaper(
-                                ( get_option('is_pdf_papersize') === 'a4') ? 'a4' : get_option('is_pdf_papersize'),
-                                ( get_option('is_pdf_orientation') === 'portrait') ? 'portrait' : get_option('is_pdf_orientation')
-                            );
+                // Create a new Dompdf instance
+                $dompdf = new Dompdf\Dompdf();
 
+                // Load the PDF content
+                $dompdf->loadHtml($content);
 
-            // Render the PDF
-            $dompdf->render();
-            // $dompdf->stream("",array("Attachment"=> false));
-            if(get_option('is_pdf_password_protected') === 'password_protected') : 
-            // Password protection
-                $cpdf = $dompdf->getCanvas()->get_cpdf();
-
-                // Set encryption with strong passwords:
-                // - User password (optional, for opening restrictions) - Use a complex password with at least 12 characters, including uppercase, lowercase, numbers, and symbols.
-                $userPassword = 'DEMO123';
-                // - Owner password (mandatory for full access) - Use a different, equally strong password.
-                $ownerPassword = 'DEMO123';
-                $allowedActions = ['print', 'copy']; // Adjust based on your requirements
-
-                $cpdf->setEncryption($userPassword, $ownerPassword, $allowedActions);
-
-            endif;
+                // Set paper size and orientation
+                $dompdf->setPaper(
+                                    ( get_option('is_pdf_papersize') === 'a4') ? 'a4' : get_option('is_pdf_papersize'),
+                                    ( get_option('is_pdf_orientation') === 'portrait') ? 'portrait' : get_option('is_pdf_orientation')
+                                );
 
 
-            // Get the PDF output
-            $pdf_output = $dompdf->output();
+                // Render the PDF
+                $dompdf->render();
+                // $dompdf->stream("",array("Attachment"=> false));
+                if(get_option('is_pdf_password_protected') === 'password_protected') : 
+                // Password protection
+                    $cpdf = $dompdf->getCanvas()->get_cpdf();
+
+                    // Set encryption with strong passwords:
+                    // - User password (optional, for opening restrictions) - Use a complex password with at least 12 characters, including uppercase, lowercase, numbers, and symbols.
+                    $userPassword = 'DEMO123';
+                    // - Owner password (mandatory for full access) - Use a different, equally strong password.
+                    $ownerPassword = 'DEMO123';
+                    $allowedActions = ['print', 'copy']; // Adjust based on your requirements
+
+                    $cpdf->setEncryption($userPassword, $ownerPassword, $allowedActions);
+
+                endif;
 
 
-            $pdf_file_path = plugin_dir_path(__FILE__) . 'assets/pdf/woo-invoice-preview.pdf';
+                // Get the PDF output
+                $pdf_output = $dompdf->output();
 
-            file_put_contents($pdf_file_path, $pdf_output);
+
+                $pdf_file_path = plugin_dir_path(__FILE__) . 'assets/pdf/woo-invoice-preview.pdf';
+
+                // Write the PDF content to the file
+                $write_result = $wp_filesystem->put_contents( $pdf_file_path, $pdf_output );
+
+                // Check if the file write operation was successful
+                if ( $write_result === false ) {
+                    // Failed to write the PDF content to the file, handle error here if needed
+                    echo 'Error: Failed to write PDF content to the file.';
+                } else {
+                    // File write successful, proceed with further actions if needed
+                }
+            }
         }
 
     }
@@ -1627,7 +1673,7 @@ class WooInvoicePlus
                 echo '<h5 class="email-upsell-title">Your Password to view Invoice PDF is : "' . esc_html($pdf_password) . '"</h5>';
             }
             
-            echo '<a href="' . esc_url($download_url) . '" class="button" download>' . esc_html__('Download Invoice', 'woo-invoice-plus') . '</a>';
+            echo '<a href="' . esc_url($download_url) . '" class="button indirect_function_call" download>' . esc_html__('Download Invoice', 'woo-invoice-plus') . '</a>';
         } else {
             $generate_url = $this->generate_pdf_on_order_placement($order_id);
             echo '<a href="' . esc_url($generate_url) . '" class="button">' . esc_html__('Generate Invoice', 'woo-invoice-plus') . '</a>';
@@ -1635,7 +1681,6 @@ class WooInvoicePlus
 
         }
     }
-
 
     public function handle_invoice_download()
     {
@@ -1722,7 +1767,8 @@ class WooInvoicePlus
         
                 // Set the PDF password as the customer's first 4 letters of their name followed by the order ID
                 $pdf_password = $customer_first_name_4_letters . $order_id;
-            // Password protection
+
+                // Password protection
                 $cpdf = $dompdf->getCanvas()->get_cpdf();
 
                 // Set encryption with strong passwords:
@@ -1737,7 +1783,6 @@ class WooInvoicePlus
 
         } else {
             update_post_meta($order_id, '_pdf_password_protected', false);
-
         }
 
         // Get the PDF output
@@ -1746,27 +1791,34 @@ class WooInvoicePlus
         $upload_dir = wp_upload_dir();
         $pdf_folder_path = $upload_dir['basedir'] . '/Woo Invoice PDF/';
 
+        // Initialize WP_Filesystem
+        global $wp_filesystem;
+        // Initialize the WordPress filesystem if it's not already loaded
+        if ( ! isset( $wp_filesystem ) ) {
+            require_once ABSPATH . '/wp-admin/includes/file.php';
+            WP_Filesystem();
+        }
+
         // Create the Woo Invoice PDF folder if it doesn't exist
-        if (!file_exists($pdf_folder_path)) {
-            mkdir($pdf_folder_path, 0755, true);
+        if ( ! $wp_filesystem->is_dir($pdf_folder_path) ) {
+            $wp_filesystem->mkdir($pdf_folder_path);
         }
 
         $pdf_file_path = $pdf_folder_path . $order_id . '.pdf';
-        file_put_contents($pdf_file_path, $pdf_output);
+
+        // Write the PDF content to the file
+        $wp_filesystem->put_contents($pdf_file_path, $pdf_output, FS_CHMOD_FILE);
 
         $upload_base_url = $upload_dir['baseurl'];
         $pdf_relative_path = str_replace($upload_dir['basedir'], '', $pdf_file_path);
         $download_url = $upload_base_url . $pdf_relative_path;
 
-
-            // Output the download button
+        // Output the download button
         if(!is_admin()){
-            echo '<a href="' . esc_url($download_url) . '" class="button" download>Download Order PDF</a>';
+            echo '<a href="' . esc_url($download_url) . '" class="button direct_function_call" download>Download Order PDF</a>';
         }
         
         update_post_meta($order_id, '_temp_pdf_path', $download_url);
-
-
     }
 
     public function add_custom_text_after_order_table( $order ){
