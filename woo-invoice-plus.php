@@ -120,6 +120,9 @@ class WooInvoicePlus
         add_filter( 'manage_edit-shop_order_columns', array($this,'custom_shop_order_column') );
         add_filter( 'manage_shop_order_posts_custom_column', array($this,'custom_shop_order_column_content') );
 
+        add_action( 'wp_ajax_generate_invoice', array( $this, 'generate_invoice_callback' ) );
+
+
         register_activation_hook(__FILE__, array($this, 'woo_invoice_plugin_activation'));
     }
 
@@ -1164,6 +1167,9 @@ class WooInvoicePlus
             wp_enqueue_script('wooinvoiceplus-js');
 
         }
+
+        wp_enqueue_script( 'invoice-generator-script', plugin_dir_url( __FILE__ ) . '/assets/js/invoice-generator.js', array( 'jquery' ), '1.0', true );
+    wp_localize_script( 'invoice-generator-script', 'invoice_generator_ajax', array( 'ajaxurl' => admin_url( 'admin-ajax.php' ) ) );
     }
     
 
@@ -1675,8 +1681,7 @@ class WooInvoicePlus
             
             echo '<a href="' . esc_url($download_url) . '" class="button indirect_function_call" download>' . esc_html__('Download Invoice', 'woo-invoice-plus') . '</a>';
         } else {
-            $generate_url = $this->generate_pdf_on_order_placement($order_id);
-            echo '<a href="' . esc_url($generate_url) . '" class="button">' . esc_html__('Generate Invoice', 'woo-invoice-plus') . '</a>';
+           echo '<button class="button generate-invoice-btn" data-order-id="' . $order_id . '">' . esc_html__('Generate Invoice', 'woo-invoice-plus') . '</button>';
             echo "<br><b>If PDF not generated correctly then please try again to generate!!</b>";
 
         }
@@ -2175,6 +2180,14 @@ class WooInvoicePlus
 
         }
         return $content;
+    }
+
+    // AJAX handler to trigger PDF generation
+    public function generate_invoice_callback() {
+        $order_id = $_POST['order_id'];
+        // Call your PDF generation function here
+        $generate_url = $this->generate_pdf_on_order_placement($order_id);
+        wp_send_json_success( $generate_url );
     }
 
 }
