@@ -126,3 +126,7 @@ body {
 .media-upload-preview{
     width: 200px;
 }
+
+.checkbox-wrapper {
+    margin-bottom: 5px; /* Adjust spacing between each checkbox */
+}

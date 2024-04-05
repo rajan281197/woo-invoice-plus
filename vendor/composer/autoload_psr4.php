@@ -6,19 +6,9 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
-    'eftec\\bladeone\\' => array($vendorDir . '/eftec/bladeone/lib'),
-    'WP_CLI\\I18n\\' => array($vendorDir . '/wp-cli/i18n-command/src'),
-    'Symfony\\Polyfill\\Php80\\' => array($vendorDir . '/symfony/polyfill-php80'),
-    'Symfony\\Component\\Finder\\' => array($vendorDir . '/symfony/finder'),
     'Svg\\' => array($vendorDir . '/phenx/php-svg-lib/src/Svg'),
     'Sabberworm\\CSS\\' => array($vendorDir . '/sabberworm/php-css-parser/src'),
-    'Peast\\test\\' => array($vendorDir . '/mck89/peast/test/Peast'),
-    'Peast\\' => array($vendorDir . '/mck89/peast/lib/Peast'),
-    'Mustangostang\\' => array($vendorDir . '/wp-cli/mustangostang-spyc/src'),
     'Masterminds\\' => array($vendorDir . '/masterminds/html5/src'),
-    'Gettext\\Languages\\' => array($vendorDir . '/gettext/languages/src'),
-    'Gettext\\' => array($vendorDir . '/gettext/gettext/src'),
     'FontLib\\' => array($vendorDir . '/phenx/php-font-lib/src/FontLib'),
     'Dompdf\\' => array($vendorDir . '/dompdf/dompdf/src'),
-    'Dealerdirect\\Composer\\Plugin\\Installers\\PHPCodeSniffer\\' => array($vendorDir . '/dealerdirect/phpcodesniffer-composer-installer/src'),
 );
