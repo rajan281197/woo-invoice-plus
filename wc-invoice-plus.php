@@ -139,7 +139,11 @@ class WooInvoicePlus
     {
         if (!class_exists('WooCommerce')) {
             echo '<div class="notice notice-error"><p>';
+<<<<<<< HEAD:wc-invoice-plus.php
             echo esc_html__('WooCommerce is not installed / Activated. Please install and activate WooCommerce to use Woo Invoice Plus.', 'wc-invoice-plus');
+=======
+            echo esc_html__('WooCommerce is not installed / Activated. Please install and activate WooCommerce to use Woo Invoice Plus.', 'woo-invoice-plus');
+>>>>>>> 69003900b885e71fa46b1102e7e5cc737df07ad3:woo-invoice-plus.php
             echo '</p></div>';
     
             deactivate_plugins(plugin_basename(__FILE__));
@@ -158,7 +162,11 @@ class WooInvoicePlus
                     $download_url = $this->get_invoice_download_url($order_id);
 
                     $actions['order-again'] = array(
+<<<<<<< HEAD:wc-invoice-plus.php
                         'url' => wp_nonce_url( esc_url($download_url), 'wc-invoice-plus' ),
+=======
+                        'url' => wp_nonce_url( esc_url($download_url), 'woo-invoice-plus' ),
+>>>>>>> 69003900b885e71fa46b1102e7e5cc737df07ad3:woo-invoice-plus.php
                         'name' => __( 'Woo Invoice', 'woocommerce' ),
                     );
                 // }
@@ -168,7 +176,11 @@ class WooInvoicePlus
 
     // Add custom column header
     public function custom_shop_order_column( $columns ) {
+<<<<<<< HEAD:wc-invoice-plus.php
         $columns['invoice_download'] = __( 'Invoice Download', 'wc-invoice-plus' );
+=======
+        $columns['invoice_download'] = __( 'Invoice Download', 'woo-invoice-plus' );
+>>>>>>> 69003900b885e71fa46b1102e7e5cc737df07ad3:woo-invoice-plus.php
         return $columns;
     }
  
@@ -188,7 +200,11 @@ class WooInvoicePlus
                 printf(
                     '<a href="%s" class="button">%s</a>',
                     esc_url( $download_url ),
+<<<<<<< HEAD:wc-invoice-plus.php
                     esc_html__( 'Download Invoice', 'wc-invoice-plus' )
+=======
+                    esc_html__( 'Download Invoice', 'woo-invoice-plus' )
+>>>>>>> 69003900b885e71fa46b1102e7e5cc737df07ad3:woo-invoice-plus.php
                 );
     
                 $is_pdf_password_protected = get_post_meta( $order_id, '_pdf_password_protected', true );
@@ -204,12 +220,20 @@ class WooInvoicePlus
     
                     printf(
                         '<p class="invoice-password-info">%s %s</p>',
+<<<<<<< HEAD:wc-invoice-plus.php
                         esc_html__( 'Your Password to view Invoice PDF is:', 'wc-invoice-plus' ),
+=======
+                        esc_html__( 'Your Password to view Invoice PDF is:', 'woo-invoice-plus' ),
+>>>>>>> 69003900b885e71fa46b1102e7e5cc737df07ad3:woo-invoice-plus.php
                         esc_html( $pdf_password )
                     );
                 }
             } else {
+<<<<<<< HEAD:wc-invoice-plus.php
                 echo esc_html__( 'Invoice not available', 'wc-invoice-plus' );
+=======
+                echo esc_html__( 'Invoice not available', 'woo-invoice-plus' );
+>>>>>>> 69003900b885e71fa46b1102e7e5cc737df07ad3:woo-invoice-plus.php
             }
         }
     }
@@ -263,7 +287,11 @@ class WooInvoicePlus
                 // Set the PDF password as the customer's first 4 letters of their name followed by the order ID
                 $pdf_password = $customer_first_name_4_letters . $order_id;
 
+<<<<<<< HEAD:wc-invoice-plus.php
                 echo '<h2 class="email-upsell-title">' . esc_html__('Your Password to view Invoice PDF is: ', 'wc-invoice-plus') . esc_html($pdf_password) . '</h2>';
+=======
+                echo '<h2 class="email-upsell-title">' . esc_html__('Your Password to view Invoice PDF is: ', 'woo-invoice-plus') . esc_html($pdf_password) . '</h2>';
+>>>>>>> 69003900b885e71fa46b1102e7e5cc737df07ad3:woo-invoice-plus.php
 
             }
         }
@@ -838,7 +866,11 @@ class WooInvoicePlus
         <?php if(get_option('is_pdf_backend_preview') === 'backend_enabled_pdf_preview') : ?>
             <div class="pdf-preview-btn-container">
                 <button id="pdf-preview-button" class="button button-primary button-large">
+<<<<<<< HEAD:wc-invoice-plus.php
                     <?php esc_html_e('Preview PDF', 'wc-invoice-plus'); ?> 
+=======
+                    <?php esc_html_e('Preview PDF', 'woo-invoice-plus'); ?> 
+>>>>>>> 69003900b885e71fa46b1102e7e5cc737df07ad3:woo-invoice-plus.php
                     <span class="dashicons dashicons-media-document"></span>
                 </button>
             </div>
@@ -1699,7 +1731,11 @@ class WooInvoicePlus
                 wp_redirect($download_url);
                 exit;
             } else {
+<<<<<<< HEAD:wc-invoice-plus.php
                 wp_die(esc_html__('Invoice not found.', 'wc-invoice-plus'));
+=======
+                wp_die(esc_html__('Invoice not found.', 'woo-invoice-plus'));
+>>>>>>> 69003900b885e71fa46b1102e7e5cc737df07ad3:woo-invoice-plus.php
             }
         }
     }
@@ -1853,7 +1889,11 @@ class WooInvoicePlus
                     echo '<h5 class="email-upsell-title">Your Password to view Invoice PDF is : "' . esc_html($pdf_password) . '"</h5>';
                 }
 
+<<<<<<< HEAD:wc-invoice-plus.php
                 echo '<a href="' . esc_url($download_url) . '" class="button" download>' . esc_html__('Download Invoice', 'wc-invoice-plus') . '</a>';
+=======
+                echo '<a href="' . esc_url($download_url) . '" class="button" download>' . esc_html__('Download Invoice', 'woo-invoice-plus') . '</a>';
+>>>>>>> 69003900b885e71fa46b1102e7e5cc737df07ad3:woo-invoice-plus.php
             }
             
         } else {

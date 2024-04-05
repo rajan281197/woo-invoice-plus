@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 === WC Invoice Plus ===
+=======
+=== Woo Invoice Plus ===
+>>>>>>> 69003900b885e71fa46b1102e7e5cc737df07ad3
 Contributors: rajanpanchal2028
 Tags: invoices, woocommerce, pdf, billing, accounting
 Requires at least: 4.0
